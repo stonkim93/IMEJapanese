@@ -1,0 +1,89 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- MS Store 빌드 여부 토글 스위치 추가 -->
+    <IsStoreBuild>false</IsStoreBuild>
+
+    <!-- 일반 빌드 시에는 Windows OS 버전을 떼어내어 WinRT SDK 자동 포함을 방지 -->
+    <TargetFramework Condition="'$(IsStoreBuild)' != 'true'">net10.0-windows</TargetFramework>
+    <TargetFramework Condition="'$(IsStoreBuild)' == 'true'">net10.0-windows10.0.19041.0</TargetFramework>
+
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWpf>true</UseWpf>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>images\IMEJapanese.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <NoWarn>$(NoWarn);CA1420</NoWarn>
+
+    <!-- Microsoft Store MSIX 패키징 및 앱 정보 설정 추가 -->
+    <EnableMsixTooling Condition="'$(IsStoreBuild)' == 'true'">true</EnableMsixTooling>
+    <GenerateAppxPackageOnBuild Condition="'$(IsStoreBuild)' == 'true'">false</GenerateAppxPackageOnBuild>
+    <AppxPackageSigningEnabled Condition="'$(IsStoreBuild)' == 'true'">true</AppxPackageSigningEnabled>
+    
+    <!-- 앱 기본 정보 -->
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0.0</InformationalVersion>
+    <Company>stonkim93</Company>
+    <Product>IMEJapanese</Product>
+    <Description>IME state indicator for Windows</Description>
+    <Copyright>Copyright (c) 2024 stonkim93</Copyright>
+  </PropertyGroup>
+
+  <!-- 기능 활성화 스위치 -->
+  <PropertyGroup>
+    <EnableKeyboardLayout>true</EnableKeyboardLayout>
+    <EnableCapsJapanese1>true</EnableCapsJapanese1>
+    <EnableCapsJapanese2>true</EnableCapsJapanese2>
+    <EnableCapsJapanese3>true</EnableCapsJapanese3>
+  </PropertyGroup>
+
+  <!-- 설정된 스위치에 따라 C# 코드용 조건부 상수(DefineConstants) 정의 -->
+  <PropertyGroup>
+    <DefineConstants Condition="'$(EnableKeyboardLayout)' == 'true'">$(DefineConstants);ENABLE_KEYBOARD_LAYOUT</DefineConstants>
+    <DefineConstants Condition="'$(EnableCapsJapanese1)' == 'true'">$(DefineConstants);ENABLE_CAPS_Japanese1</DefineConstants>
+    <DefineConstants Condition="'$(EnableCapsJapanese2)' == 'true'">$(DefineConstants);ENABLE_CAPS_Japanese2</DefineConstants>
+    <DefineConstants Condition="'$(EnableCapsJapanese3)' == 'true'">$(DefineConstants);ENABLE_CAPS_Japanese3</DefineConstants>
+  </PropertyGroup>
+
+  <!-- 조건부 이미지 리소스 포함 -->
+  <ItemGroup>
+    <EmbeddedResource Include="images\IMEJapanese.ico"/>
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\EnglishKey1.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\EnglishKey2.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\KoreanKey1.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\KoreanKey2.png"/>
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Layer1Key1.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Layer1Key2.png"/>
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan1Layer2Key1.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan1Layer2Key2.png"/>
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer1Key1.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer1Key2.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer2Key1.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer2Key2.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer3Key1.png"/>
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer3Key2.png"/>
+  </ItemGroup>
+
+  <!-- MS Store 필수 파일들 및 SDK 참조 추가 -->
+  <ItemGroup Condition="'$(IsStoreBuild)' == 'true'">
+    <AppxManifest Include="Package.appxmanifest" />
+    <Content Include="images\Square44x44Logo.png" />
+    <Content Include="images\Square150x150Logo.png" />
+    <Content Include="images\StoreLogo.png" />
+    <Content Include="images\SplashScreen.png" />
+  </ItemGroup>
+
+  <!-- SDK 참조 -->
+  <ItemGroup Condition="'$(IsStoreBuild)' == 'true'">
+    <FrameworkReference Include="Microsoft.Windows.SDK.NET.Ref" />
+  </ItemGroup>
+
+</Project>
