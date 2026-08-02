@@ -1,5 +1,5 @@
 // Lang.cs - IMEJapanese
-// Pali어 / 일본어1(조합형) / 일본어2(조합형) / 일본어3(3Layer) / 특수기호(Engineer) 자판 매핑 및 처리.
+// 일본어1(조합형) / 일본어2(조합형) / 일본어3(3Layer) 자판 매핑 및 처리.
 #nullable enable
 using System;
 using System.Collections.Generic;
@@ -13,7 +13,6 @@ using System.Windows.Forms;
 
 namespace IMEJapanese
 {
-    // [수정: 변수명 명확화] InputVk -> VirtualKeyCodes
     internal static class VirtualKeyCodes
     {
         public const int Shift = 0x10;
@@ -44,8 +43,6 @@ namespace IMEJapanese
     }
 
     #region [ 0. 유틸리티: 키보드 레이아웃 분석 (KeyboardLayoutAnalyzer) ]
-    // [수정: 명칭 변경] KeyboardUtils -> KeyboardLayoutAnalyzer
-    // [수정: 내부의 독립된 API 선언들을 삭제하고 통합된 NativeMethods를 사용하도록 수정]
     internal static class KeyboardLayoutAnalyzer
     {
         public static bool CheckCopilotShift(bool isShift)
@@ -62,8 +59,6 @@ namespace IMEJapanese
         public static string? GetChar(int vkCode, bool isShift)
         {
             byte[] keyState = new byte[256];
-            
-            // [수정: NativeMethods 통일화]
             NativeMethods.GetKeyboardState(keyState);
 
             if (isShift) 
@@ -79,7 +74,6 @@ namespace IMEJapanese
                 keyState[0xA1] = 0;
             }
 
-            // [수정: NativeMethods 통일화 및 파라미터(out) 규칙 일치]
             IntPtr hWnd = NativeMethods.GetForegroundWindow();
             uint threadId = NativeMethods.GetWindowThreadProcessId(hWnd, out _);
             IntPtr hkl = NativeMethods.GetKeyboardLayout(threadId);
@@ -87,29 +81,20 @@ namespace IMEJapanese
             uint scanCode = NativeMethods.MapVirtualKeyEx((uint)vkCode, 0, hkl);
             StringBuilder sb = new StringBuilder(5);
             
-            // [수정: NativeMethods 통일화]
             int result = NativeMethods.ToUnicodeEx((uint)vkCode, scanCode, keyState, sb, sb.Capacity, 0, hkl);
             
             if (result > 0)
             {
                 string ch = sb.ToString();
-                
                 if (isShift && ch.Length == 1 && IsSymbolOrNumber(vkCode))
                 {
                     string? shiftedFallback = GetStandardShiftedSymbol(vkCode);
-                    if (shiftedFallback != null && char.IsDigit(ch[0]))
-                    {
-                        return shiftedFallback;
-                    }
+                    if (shiftedFallback != null && char.IsDigit(ch[0])) return shiftedFallback;
                 }
                 return ch;
             }
 
-            if (isShift && IsSymbolOrNumber(vkCode))
-            {
-                return GetStandardShiftedSymbol(vkCode);
-            }
-
+            if (isShift && IsSymbolOrNumber(vkCode)) return GetStandardShiftedSymbol(vkCode);
             return null;
         }
 
@@ -127,31 +112,10 @@ namespace IMEJapanese
 
         public static bool IsSymbolOrNumber(int vkCode)
         {
-            return (vkCode >= 0x30 && vkCode <= 0x39) || 
-                   (vkCode >= 0xBA && vkCode <= 0xC0) || 
-                   (vkCode >= 0xDB && vkCode <= 0xDE);   
+            return (vkCode >= 0x30 && vkCode <= 0x39) || (vkCode >= 0xBA && vkCode <= 0xC0) || (vkCode >= 0xDB && vkCode <= 0xDE);   
         }
 
-        public static bool IsSymbolOrNumberOrLetter(int vkCode)
-        {
-            return IsSymbolOrNumber(vkCode) || (vkCode >= 0x41 && vkCode <= 0x5A);
-        }
-
-        public static bool HandleGlobalKey2Mode(int vkCode, bool isShift)
-        {
-            if (AppConfig.IsOverlayKey2Mode && IsSymbolOrNumberOrLetter(vkCode))
-            {
-                string? ch = GetChar(vkCode, true);
-                if (!string.IsNullOrEmpty(ch))
-                {
-                    GlobalInputHook.IsSending = true; 
-                    NativeMethods.SendUnicodeString(ch); 
-                    GlobalInputHook.IsSending = false; 
-                    return true;
-                }
-            }
-            return false;
-        }
+        // [최적화] 사용하지 않는 HandleGlobalKey2Mode 및 관련 IsSymbolOrNumberOrLetter 제거 완료
     }
     #endregion
 
@@ -169,8 +133,6 @@ namespace IMEJapanese
 
     internal static class KeyProcessorFactory
     {
-        public static readonly IKeyProcessor Engineer = new EngineerProcessor(); 
-        public static readonly IKeyProcessor Pali = new PaliProcessor();
         public static readonly IKeyProcessor Japanese1 = new Japanese1Processor();
         public static readonly IKeyProcessor Japanese2 = new Japanese2Processor();
         public static readonly IKeyProcessor Japanese3 = new Japanese3Processor();
@@ -181,15 +143,11 @@ namespace IMEJapanese
     
     internal static class OverlayHelper
     {
-        public static void ClearOverlay()
-        {
-            try { MainForm.Instance?.ClearOverlay(); } catch { }
-        }
+        public static void ClearOverlay() { try { MainForm.Instance?.ClearOverlay(); } catch { } }
     }
 
     internal static class TextSelectionUtils
     {
-        // [수정: 매직 넘버 그룹화] 클립보드 및 스레드 설정값 분리
         internal struct ClipboardConfig
         {
             public const uint UnicodeTextFormat = 13;
@@ -213,7 +171,6 @@ namespace IMEJapanese
             if (inputs.Count > 0) SendInputsSafe(inputs);
         }
 
-        // [수정: 명칭 변경] RunOnSTA -> ExecuteOnStaThread
         public static void ExecuteOnStaThread(Action action)
         {
             Thread thread = new Thread(() => { try { action(); } catch { } }) { IsBackground = true };
@@ -579,275 +536,7 @@ namespace IMEJapanese
     }
     #endregion
 
-    #region [ 4. 언어 프로세서: Pali어 ]
-    /// <summary>
-    /// Pali어 입력 프로세서: 영문 키 입력을 통해 Pali어 특수 문자를 생성합니다.
-    /// </summary>
-    internal class PaliProcessor : IKeyProcessor
-    {
-        private bool _isVirtualShift = false;
-        public bool IsVirtualShift => _isVirtualShift;
-        public int CurrentLayer => 1; 
-
-        public void ToggleVirtualShift() => _isVirtualShift = !_isVirtualShift;
-
-        public bool ProcessHanjaKey(IntPtr hFore, bool capsOn, bool isHangulMode)
-        {
-            if (isHangulMode && capsOn) { 
-                ImeState.SetHangulState(hFore, false); 
-                NativeMethods.SimulateCapsLock(); 
-                MainForm.Instance?.ShowOverlay("영어 소문자 모드"); 
-                return true; 
-            }
-            if (!isHangulMode || !capsOn) {
-                ImeState.SetHangulState(hFore, true);
-                if (!capsOn) NativeMethods.SimulateCapsLock();
-                MainForm.Instance?.ShowOverlay("Pali_Sanskrit");
-                return true;
-            }            
-            return false;
-        }
-
-        public bool ProcessKeyDown(int vkCode, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
-        {
-            isShift = KeyboardLayoutAnalyzer.CheckCopilotShift(isShift);
-            if (AppConfig.IsOverlayKey2Mode) isShift = true;
-
-            if (!capsOn || !isHangulMode) return false;
-            if (vkCode is >= 0x21 and <= 0x28) { if (!isShift) PaliMap.SetLastOutputChar(""); return false; }
-            if (vkCode == VirtualKeyCodes.vk_P) { PaliMap.HandlePaliTransformation(); return true; }
-            if (TextSelectionUtils.IsConverting) return true;
-
-            string? keyResult = PaliMap.ProcessKey(vkCode, isShift ^ _isVirtualShift);
-            
-            if (keyResult == null && isShift && KeyboardLayoutAnalyzer.IsSymbolOrNumberOrLetter(vkCode))
-            {
-                keyResult = KeyboardLayoutAnalyzer.GetChar(vkCode, true);
-            }
-
-            if (keyResult == null) return (vkCode is >= 0x41 and <= 0x5A or >= 0x30 and <= 0x39);
-            
-            if (keyResult.Length > 0)
-            {
-                GlobalInputHook.IsSending = true; 
-                NativeMethods.SendUnicodeString(keyResult); 
-                GlobalInputHook.IsSending = false; 
-            }
-            return true;
-        }
-
-        public void OnMouseClick() => PaliMap.SetLastOutputChar("");
-    }
-
-    internal static class PaliMap
-    {
-        private static string _lastOutputChar = "";
-        
-        private static readonly Dictionary<string, string> TransformationRules = new()
-        {
-            {"a","ā"}, {"ā","a"}, {"A","Ā"}, {"Ā","A"}, {"s","ṣ"}, {"ṣ","ś"}, {"ś","s"}, {"S","Ṣ"}, {"Ṣ","Ś"}, {"Ś","S"},
-            {"d","ḍ"}, {"ḍ","d"}, {"D","Ḍ"}, {"Ḍ","D"}, {"r","ṛ"}, {"ṛ","ṝ"}, {"ṝ","r"}, {"R","Ṛ"}, {"Ṛ","Ṝ"}, {"Ṝ","R"},
-            {"t","ṭ"}, {"ṭ","t"}, {"T","Ṭ"}, {"Ṭ","T"}, {"u","ū"}, {"ū","u"}, {"U","Ū"}, {"Ū","U"},
-            {"h","ḥ"}, {"ḥ","h"}, {"H","Ḥ"}, {"Ḥ","H"}, {"i","ī"}, {"ī","i"}, {"I","Ī"}, {"Ī","I"},
-            {"l","ḷ"}, {"ḷ","ḹ"}, {"ḹ","l"}, {"L","Ḷ"}, {"Ḷ","Ḹ"}, {"Ḹ","L"}, {"m","ṃ"}, {"ṃ","m"}, {"M","Ṃ"}, {"Ṃ","M"},
-            {"n","ṇ"}, {"ṇ","ṅ"}, {"ṅ","ñ"}, {"ñ","n"}, {"N","Ṇ"}, {"Ṇ","Ṅ"}, {"Ṅ","Ñ"}, {"Ñ","N"}
-        };
-
-        private static readonly Dictionary<string, string?[]> _paliChains = new()
-        {
-            {"a", new string?[]{"a", null, "ā", null, null, null, null}},
-            {"d", new string?[]{"d", "ḍ", null, null, null, null, null}},
-            {"h", new string?[]{"h", "ḥ", null, null, null, null, null}},
-            {"i", new string?[]{"i", null, "ī", null, null, null, null}},
-            {"l", new string?[]{"l", "ḷ", null, "ḹ", null, null, null}},
-            {"m", new string?[]{"m", "ṃ", null, null, null, null, null}},
-            {"n", new string?[]{"n", "ṇ", null, null, "ṅ", null, "ñ"}},
-            {"t", new string?[]{"t", "ṭ", null, null, null, null, null}},
-            {"u", new string?[]{"u", null, "ū", null, null, null, null}},
-            {"r", new string?[]{"r", "ṛ", null, "ṝ", null, null, null}},
-            {"s", new string?[]{"s", "ṣ", null, null, null, "ś", null}},
-            {"A", new string?[]{"A", null, "Ā", null, null, null, null}},
-            {"D", new string?[]{"D", "Ḍ", null, null, null, null, null}},
-            {"H", new string?[]{"H", "Ḥ", null, null, null, null, null}},
-            {"I", new string?[]{"I", null, "Ī", null, null, null, null}},
-            {"L", new string?[]{"L", "Ḷ", null, "Ḹ", null, null, null}},
-            {"M", new string?[]{"M", "Ṃ", null, null, null, null, null}},
-            {"N", new string?[]{"N", "Ṇ", null, null, "Ṅ", null, "Ñ"}},
-            {"T", new string?[]{"T", "Ṭ", null, null, null, null, null}},
-            {"U", new string?[]{"U", null, "Ū", null, null, null, null}},
-            {"R", new string?[]{"R", "Ṛ", null, "Ṝ", null, null, null}},
-            {"S", new string?[]{"S", "Ṣ", null, null, null, "Ś", null}},
-        };
-
-        private static readonly Dictionary<string, int> _paliCategoryMap = new();
-        private static readonly Dictionary<string, string?[]> _paliReverseChainMap = new();
-
-        static PaliMap()
-        {
-            foreach (var kv in _paliChains)
-            {
-                string?[] chain = kv.Value;
-                for (int i = 0; i < 7; i++)
-                {
-                    if (chain[i] != null)
-                    {
-                        _paliCategoryMap[chain[i]!] = i;
-                        _paliReverseChainMap[chain[i]!] = chain;
-                    }
-                }
-            }
-        }
-
-        public static readonly IReadOnlyDictionary<int, (string Lower, string Upper)> Map = new Dictionary<int, (string, string)>
-        {
-            { 0x31, ("①", "¹") }, { 0x32, ("②", "²") }, { 0x33, ("③", "³") }, { 0x34, ("④", "⁴") }, { 0x35, ("⑤", "†") },
-            { 0x36, ("⑥", "‡") }, { 0x37, ("⑦", "§") }, { 0x38, ("⑧", "*") }, { 0x39, ("⑨", "(") }, { 0x30, ("⑩", ")") },
-            { 0x51, ("→", "←") }, { 0x57, ("ś", "Ś") }, { 0x45, ("ṝ", "Ṝ") }, { 0x52, ("ṛ", "Ṛ") }, { 0x54, ("ṭ", "Ṭ") },
-            { 0x59, ("※", "√") }, { 0x55, ("ū", "Ū") }, { 0x49, ("ī", "Ī") }, { 0x4F, ("ḹ", "Ḹ") }, { 0x41, ("ā", "Ā") },
-            { 0x53, ("ṣ", "Ṣ") }, { 0x44, ("ḍ", "Ḍ") }, { 0x46, ("\u2026", "–") }, { 0x47, ("○", "◎") }, { 0x48, ("ḥ", "Ḥ") },
-            { 0x4A, ("ñ", "Ñ") }, { 0x4B, ("·", "•") }, { 0x4C, ("ḷ", "Ḷ") }, { 0xBA, (";", ":") }, { 0x5A, ("\u300C", "\u3010") }, 
-            { 0x58, ("\u300D", "\u3011") }, { 0x43, ("\u300E", "\u300A") }, { 0x56, ("\u300F", "\u300B") }, { 0x42, ("ṅ", "Ṅ") }, 
-            { 0x4E, ("ṇ", "Ṇ") }, { 0x4D, ("ṃ", "Ṃ") }, { 0xBC, (",", "<") }, { 0xBE, (".", ">") }, { 0xBF, ("/", "?") }
-        };
-
-        public static void SetLastOutputChar(string ch) => _lastOutputChar = ch;
-
-        public static string? ProcessKey(int vkCode, bool isShift)
-        {
-            if (Map.TryGetValue(vkCode, out var val))
-            {
-                _lastOutputChar = isShift ? val.Upper : val.Lower; 
-                MainForm.Instance?.ShowOverlay(_lastOutputChar);
-                return _lastOutputChar;
-            }
-            _lastOutputChar = ""; return null;
-        }
-
-        public static void HandlePaliTransformation()
-        {
-            TextSelectionUtils.TransformAndReplaceText(
-                _lastOutputChar, 
-                ApplyPaliTransformation, 
-                SetLastOutputChar
-            );
-        }
-
-        private static string ApplyPaliTransformation(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return text;
-            
-            if (text.Length == 1) 
-                return TransformationRules.TryGetValue(text, out string? res) ? res : text;
-
-            string first = text[0].ToString();
-            
-            if (!TransformationRules.TryGetValue(first, out string? firstConverted)) return text;
-            if (!_paliCategoryMap.TryGetValue(firstConverted, out int toCat)) return text; 
-
-            StringBuilder sb = new StringBuilder(text.Length);
-            sb.Append(firstConverted);
-            
-            for (int i = 1; i < text.Length; i++)
-            {
-                string c = text[i].ToString();
-                
-                if (_paliReverseChainMap.TryGetValue(c, out string?[]? chain) && chain[toCat] != null)
-                {
-                    sb.Append(chain[toCat]);
-                }
-                else
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
-        }
-    }
-    
-    #endregion
-
-    #region [ 5. 언어 프로세서: 공학용 특수기호 (Engineer) ]
-    /// <summary>
-    /// Engineer 입력 프로세서: 자주 쓰는 공학/수학 기호를 출력합니다.
-    /// </summary>
-    internal class EngineerProcessor : IKeyProcessor
-    {
-        private bool _isVirtualShift = false;
-        public bool IsVirtualShift => _isVirtualShift;
-        public int CurrentLayer => 1;
-        public void ToggleVirtualShift() => _isVirtualShift = !_isVirtualShift;
-
-        public bool ProcessHanjaKey(IntPtr hFore, bool capsOn, bool isHangulMode)
-        {
-            if (isHangulMode && capsOn) { 
-                ImeState.SetHangulState(hFore, false); 
-                NativeMethods.SimulateCapsLock(); 
-                MainForm.Instance?.ShowOverlay("영어 소문자 모드");
-                return true; 
-            }
-            if (!isHangulMode || !capsOn) {
-                ImeState.SetHangulState(hFore, true);
-                if (!capsOn) NativeMethods.SimulateCapsLock();
-                MainForm.Instance?.ShowOverlay("공학용_특수기호");
-                return true;
-            }
-            return false;
-        }
-
-        public bool ProcessKeyDown(int vkCode, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
-        {
-            isShift = KeyboardLayoutAnalyzer.CheckCopilotShift(isShift);
-            if (AppConfig.IsOverlayKey2Mode) isShift = true;
-
-            if (!capsOn || !isHangulMode) return false;
-            if (vkCode is >= 0x21 and <= 0x28) return false;
-            if (TextSelectionUtils.IsConverting) return true;
-
-            if (EngineerMap.Map.TryGetValue(vkCode, out var item))
-            {
-                string targetStr = (isShift ^ _isVirtualShift) ? item.Shift : item.Normal;
-                GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(targetStr); GlobalInputHook.IsSending = false; 
-                MainForm.Instance?.ShowOverlay(targetStr);
-                return true;
-            }
-            
-            if (isShift && KeyboardLayoutAnalyzer.IsSymbolOrNumberOrLetter(vkCode))
-            {
-                string? ch = KeyboardLayoutAnalyzer.GetChar(vkCode, true);
-                if (!string.IsNullOrEmpty(ch))
-                {
-                    GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(ch); GlobalInputHook.IsSending = false;
-                    MainForm.Instance?.ShowOverlay(ch);
-                    return true;
-                }
-            }
-            
-            return (vkCode is >= 0x41 and <= 0x5A or >= 0x30 and <= 0x39);
-        }
-
-        public void OnMouseClick() { }
-    }
-
-    internal static class EngineerMap
-    {
-        // =========================================================================
-        // [ 사용자 커스텀 설정 영역: 공학용 특수기호 매핑 (EngineerMap) ]
-        // =========================================================================
-        public static readonly IReadOnlyDictionary<int, (string Normal, string Shift)> Map = new Dictionary<int, (string, string)>
-        {
-            { 0x31, ("ⓐ", "↕") }, { 0x32, ("ⓑ", "↔") }, { 0x33, ("ⓒ", "↓") }, { 0x34, ("ⓓ", "↑") }, { 0x35, ("ⓔ", "←") },
-            { 0x36, ("ⓕ", "→") }, { 0x37, ("ⓖ", "∴") }, { 0x38, ("ⓗ", "⊂") }, { 0x39, ("ⓘ", "∈") }, { 0x30, ("ⓙ", "∩") },
-            { 0x51, ("∞", "⊥") }, { 0x57, ("∝", "≠") }, { 0x45, ("ε", "≒") }, { 0x52, ("ρ", "√") }, { 0x54, ("τ", "±") },
-            { 0x59, ("υ", "×") }, { 0x55, ("θ", "∙") }, { 0x49, ("π", "∫") }, { 0x4F, ("∂", "∬") }, { 0x50, ("∇", "∮") },
-            { 0x41, ("α", "Θ") }, { 0x53, ("σ", "Σ") }, { 0x44, ("δ", "Δ") }, { 0x46, ("φ", "Φ") }, { 0x47, ("γ", "Γ") },
-            { 0x48, ("η", "℄") }, { 0x4A, ("ξ", "°") }, { 0x4B, ("κ", "≤") }, { 0x4C, ("λ", "≥") }, { 0x5A, ("ζ", "Ξ") },
-            { 0x58, ("χ", "Λ") }, { 0x43, ("ψ", "Ψ") }, { 0x56, ("ω", "Ω") }, { 0x42, ("β", "Π") }, { 0x4E, ("ν", "℃") }, { 0x4D, ("μ", "℉") }
-        };
-    }
-    
-    #endregion
-
-    #region [ 6. 언어 프로세서: 일본어1, 일본어2, 일본어3 (Japanese1, Japanese2, Japanese3) ]
+    #region [ 4. 언어 프로세서: 일본어1, 일본어2, 일본어3 (Japanese1, Japanese2, Japanese3) ]
     
     internal class Japanese1Processor : IKeyProcessor
     {
@@ -999,9 +688,9 @@ namespace IMEJapanese
             OverlayHelper.ClearOverlay();
         }
              
-	    public static void SetLastOutputChar(string ch) => _lastOutputChar = ch;
-	
-	    public static void TogglePendingHiraKataModeOnly() => _isKatakana = !_isKatakana;
+        public static void SetLastOutputChar(string ch) => _lastOutputChar = ch;
+    
+        public static void TogglePendingHiraKataModeOnly() => _isKatakana = !_isKatakana;
 
         public static void TogglePendingHiraKata()
         {
@@ -1010,10 +699,10 @@ namespace IMEJapanese
             string preview = GetPreview(_pendingConsonant);
             for (int i = 0; i < _ynToggleCount; i++) if (JapaneseShared.TransformMap.TryGetValue(preview, out string? toggled)) preview = toggled;
             _pendingChar = preview; 
-	            
+                
             MainForm.Instance?.ShowOverlay(_pendingChar, 0);
         }
-	
+    
         public static void TogglePendingYn()
         {
             if (!_waitingVowel) return; _ynToggleCount++;
@@ -1021,7 +710,7 @@ namespace IMEJapanese
             
             MainForm.Instance?.ShowOverlay(_pendingChar, 0);
         }
-	
+    
         public static void HandleHiraganaKatakanaTransformation()
         {
             TextSelectionUtils.TransformAndReplaceText(
@@ -1035,9 +724,9 @@ namespace IMEJapanese
                 }
             );
         }
-	
+    
         public static void HandleYoonTransformation()
-	    {
+        {
             TextSelectionUtils.TransformAndReplaceText(
                 _lastOutputChar,
                 JapaneseShared.ApplyYoonTransformation,
@@ -1048,8 +737,6 @@ namespace IMEJapanese
         public static bool ProcessKeyDownShared(int vkCode, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
         {
             isShift = KeyboardLayoutAnalyzer.CheckCopilotShift(isShift);
-            if (AppConfig.IsOverlayKey2Mode) isShift = true;
-
             bool isVowelKey = vkCode is VirtualKeyCodes.vk_H or VirtualKeyCodes.vk_J or VirtualKeyCodes.vk_K or VirtualKeyCodes.vk_L or VirtualKeyCodes.vk_M;
             if (Japanese1Map.IsWaitingVowel && !isVowelKey)
             {
@@ -1057,7 +744,6 @@ namespace IMEJapanese
                 if (vkCode == VirtualKeyCodes.vk_N) { Japanese1Map.TogglePendingYn(); return true; }
 
                 string pending = Japanese1Map.PendingChar;
-                
                 Japanese1Map.Reset();
                 
                 if (vkCode == VirtualKeyCodes.Escape || vkCode == VirtualKeyCodes.Backspace) return true;
@@ -1098,7 +784,7 @@ namespace IMEJapanese
             }
             return true;
         }
-	
+    
         public static string? ProcessKey(int vkCode, bool isShift)
         {
             bool useKatakana = isShift ^ _isKatakana;
@@ -1144,7 +830,7 @@ namespace IMEJapanese
                     }
                 }
             }
-	
+    
             if (_consonantKeys.Contains(vkCode))
             {
                 _waitingVowel = true; _pendingConsonant = vkCode; _isKatakana = useKatakana; _ynToggleCount = 0; _pendingChar = GetPreview(vkCode);
@@ -1152,17 +838,17 @@ namespace IMEJapanese
                 MainForm.Instance?.ShowOverlay(_pendingChar, 0);
                 return "";
             }
-	
+    
             if (_soloMap.TryGetValue(vkCode, out var solo))
             {
                 string ch = useKatakana ? solo.Kata : solo.Hira;
                 MainForm.Instance?.ShowOverlay(ch); 
                 _lastOutputChar = ch; return ch;
             }
-	
+    
             _lastOutputChar = ""; return null;
         }
-	
+    
         private static string GetPreview(int vkCode)
         {
             var map = CurrentLayer == 1 ? _previewMapL1 : _previewMapL2;
@@ -1321,7 +1007,6 @@ namespace IMEJapanese
         public bool ProcessKeyDown(int vkCode, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
         {
             isShift = KeyboardLayoutAnalyzer.CheckCopilotShift(isShift);
-            if (AppConfig.IsOverlayKey2Mode) isShift = true;
 
             if (vkCode is >= 0x21 and <= 0x28) { if (!isShift) Japanese3Map.SetLastOutputChar(""); return false; }
 

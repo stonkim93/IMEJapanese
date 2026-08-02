@@ -12,3 +12,4 @@ D:\VSCODE\IMEJapanese\obj\Debug\net10.0-windows\win-x64\refint\IMEJapanese.dll
 D:\VSCODE\IMEJapanese\obj\Debug\net10.0-windows\win-x64\IMEJapanese.pdb
 D:\VSCODE\IMEJapanese\obj\Debug\net10.0-windows\win-x64\IMEJapanese.genruntimeconfig.cache
 D:\VSCODE\IMEJapanese\obj\Debug\net10.0-windows\win-x64\ref\IMEJapanese.dll
+D:\VSCODE\IMEJapanese\obj\Debug\net10.0-windows\win-x64\IMEJapanese.sourcelink.json

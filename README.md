@@ -2,10 +2,10 @@
 
 # 🌍 IMEJapanese
 
-### I'm e-Pointer that utilizes color pointers & multi-language key-layouts 
+### I'm e-Japanese that help keyboard inputs of Japanese Characters. 
 (English, Korean, Pali, Japanese)
 
-### 컬러 마우스 포인터와 다국어 입력 모드를 지원하는 고성능 IME 상태추적 유틸리티
+### IME 설치없이 한글CAPS 입력모드에서 일본어 입력 지원
 
 ![Platform](https://img.shields.io/badge/platform-Windows-0078D4?logo=windows11&logoColor=white)
 ![Framework](https://img.shields.io/badge/.NET-10.0--windows-512BD4?logo=dotnet&logoColor=white)
@@ -19,37 +19,17 @@
 
 ## 💡 개발 동기 (Why IMEJapanese?)
 
-#### 🎯 1. 마우스 포인터로 입력 상태를 한눈에 파악
+#### 🎯 1. 한글/Caps 상태를 창의적으로 재활용
 
-> "문자 입력 상태에 따라 마우스 포인터의 색상이 변한다면, 컴퓨터 문서 작업에 도움이 될텐데?"
-
-- **문제**: 한글, 영어, 특수기호 모드를 번갈아 사용할 때 현재 입력모드를 놓치기 쉬움
-
-- **해결**: 마우스 포인터와 트레이 아이콘의 색상으로 **입력 상태를 즉각적 시각화**
-
-- **효과**: 타이핑 오류 감소, 작업 효율 증대
-
-#### 🎯 2. 한글/Caps 상태를 창의적으로 재활용
-
-> "한글 입력 상태에서 Caps Lock이 무의미한데, 이걸 특정 언어의 문자 입력 모드로 활용할 수 있지 않을까?"
+> "한글 입력 상태에서 Caps Lock이 무의미한데, 이걸 일본어 문자 입력 모드로 활용할 수 있지 않을까?"
 
 - **기존 문제**: Caps Lock은 영어에서만 의미 있음
 
-- **새로운 활용**: 한글/Caps 상태에서 **공학용 특수기호, Pali어, 일본어** 등의 입력 모드로 재구성
+- **새로운 활용**: 한글/Caps 상태에서 **일본어**의 입력 모드로 재구성
 
-- **효과**: 최소 키 입력으로 최대 다양한 모드 지원
+- **효과**: 일본어 IME 설치없이 일본어 입력 모드 지원
 
-#### 🎯 3. 초기 불교 문헌 연구 지원
-
-> "기존 Pali어 자판이 있으나, Sanskrit까지 포함한 글자판이 있다면 초기불교 문헌 정리에 도움이 될 것 같다."
-
-- **Pali어 + Sanskrit**: Pali 문자 (ā, ī, ū, ṛ, ḷ, ṃ, ṇ, ṭ, ḍ, ś, ṣ, ḥ) + Sanskrit 문자 (ṝ, ḹ) + 빈 문자에 인문학 특수기호 배치
-
-- **효과**: 빨리 경전 및 산스크리트 텍스트 직접 입력 가능
-
-- **대상**: Pali/Sanskrit 언어학자, 초기불교 연구자, 고전 문헌 전문가
-
-#### 🎯 4. 한글의 글자 조합 원리를 일본어에 적용
+#### 🎯 2. 한글의 글자 조합 원리를 일본어에 적용
 
 > "한글의 자음+모음 글자조합 원리를 일본어 문자에도 적용할 수 있지 않을까?"
 
@@ -57,7 +37,7 @@
 
 - **일본어 응용**: 대표자음(12자) + あ행모음(5자) → 조합글자(60자)
 
-- **결과**: **일본어1 (조합형)** 및 **일본어3 (3-Layer)** 입력 모드 개발
+- **결과**: 3가지 종류의 입력 모드 개발 (**일본어1 (조합형_대표글자), 일본어2 (조합형_최빈글자)** 및 **일본어3 (3-Layer)** )
 
 - **효과**: 일본어에 정통하지 않은 사용자도 직관적인 입력 가능
 
@@ -66,7 +46,7 @@
 
 ## ✨ 주요 기능 (Key Features)
 
-### 1️⃣ 입력 상태별 5가지 색상 테마 제공
+### 1️⃣ 입력 상태별 4가지 색상 테마 제공
 
 ### 2️⃣ 한글/CAPS 상태에서 4가지 입력 모드 선택
 
@@ -81,10 +61,9 @@
 | **영어 소문자** | $\color{white}\Large\blacktriangle$ White | $\color{gray}\large\boldsymbol{e}$ | 영어 소문자 입력 (CAPS Off) |
 | **영어 대문자** | $\color{DeepSkyBlue}\Large\blacktriangle$ DeepSkyBlue | $\color{deepskyblue}\large\textbf{E}$ | 영어 대문자 입력 (CAPS On) |
 | **한글** (기본) | $\color{red}\Large\blacktriangle$ Red | $\color{red}\large\textbf{K}$ | 한글 입력 (Caps Off) |
-| **공학 특수기호** | $\color{orange}\Large\blacktriangle$ Orange | $\color{orange}\large\textbf{S}$ | **한글CAPS** + 그리스문자, 수학기호 |
-| **Pali/Sanskrit** | $\color{orange}\Large\blacktriangle$ Orange | $\color{orange}\large\textbf{P}$ | **한글CAPS** + 빨리/산스크리트 문자 |
-| **Pali Unicode** | $\color{orange}\Large\blacktriangle$ Orange | $\color{orange}\large\textbf{p}$ | Us + Pali unicode 설치시 || **일본어1** (조합형) | $\color{lime}\Large\blacktriangle$ Lime | $\color{lime}\large\textbf{J}$ | **한글CAPS** + 자음/모음 조합 |
-| **일본어3** (3-Layer) | $\color{lime}\Large\blacktriangle$ Lime | $\color{lime}\large\textbf{J}$ | **한글CAPS** + 3Layer에 76자 배치 |
+| **일본어1** (조합형) | $\color{lime}\Large\blacktriangle$ Lime | $\color{lime}\large\textbf{J}$ | **한글CAPS**, 대표자음+모음 조합 |
+| **일본어2** (조합형) | $\color{lime}\Large\blacktriangle$ Lime | $\color{lime}\large\textbf{J}$ | **한글CAPS**, 최빈자음+모음 조합 |
+| **일본어3** (3-Layer) | $\color{lime}\Large\blacktriangle$ Lime | $\color{lime}\large\textbf{J}$ | **한글CAPS**, 3Layer에 76자 배치 |
 | **Japanese IME** | $\color{lime}\Large\blacktriangle$ Lime | $\color{lime}\large\textbf{j}$ | 일본어 IME 설치시 |
 
 </div>
@@ -106,25 +85,17 @@
 
 ### 4️⃣ 입력문자 표시창으로 문자 입력확인 및 학습보조
 
-- **한글/CAPS 모드**에서 키보드로 입력한 문자를 화면에 표시
+- 한글/CAPS **일본어 입력모드**에서 키보드로 입력한 문자를 화면에 표시
 
-- 일본어1 조합모드에서 "대표자음 + あ행모음 → 조합문자" 변환 표시
+- 일본어1, 일본어2 조합모드에서 "대표자음 + あ행모음 → 조합문자" 변환 표시
 
-- 일본어/Pali어에서 HK/YN/PE 전환키 사용시 글자 전환 표시
+- 일본어에서 HK/YN 전환키 사용시 글자 전환 표시
 
 - 한자키로 입력모드/Layer 전환시 현재 입력모드/Layer 표시
 
-### 5️⃣ 아래한글(hwp)과 엑셀(excel)에서 포인터 하단에 작은원(mini indicator) 표시
+### 5️⃣ 삼성전자 갤럭시북5 Copilot키의 한자키 적용/복원 키맵핑 기능 제공
 
-- 마우스 포인터를 자체적으로 관리하는 앱(한글,엑셀)에서는 포인터 우측 하단에 **'작은원'**을 생성하고 입력 상태에 따라 색상을 변경합니다.
-
-  ⚠️ Microsoft Excel (`excel.exe`)의 셀 위에서는 포인터가 흰색 십자가 형태로 바뀐다.
-  
-  ⚠️ 한글과컴퓨터 아래한글 (`hwp.exe`)의 텍스트 입력창 안에서는 포인터가 검은색 I자로 바뀐다.
-
-### 6️⃣ 삼성전자 갤럭시북5 Copilot키의 한자키 적용/복원 키맵핑 기능 제공
-
-### 7️⃣ 트레이 아이콘 **클릭**하여 메뉴 선택하고, 옵션 On/Off
+### 6️⃣ 트레이 아이콘 **클릭**하여 메뉴 선택하고, 옵션 On/Off
 
 <div align="center">
 
@@ -137,9 +108,7 @@
 ## 💡 사용팁 (Tips)
 
 
-### 2️⃣ 일본어 입력하기
-
-#### 일본어1_조합형
+### 1️⃣ 일본어1_조합형_대표자음
 
 1. 트레이 메뉴에서 "한글CAPS 일본어1_조합형" 선택 (한글 입력 모드 + CAPS Lock On)
 
@@ -155,23 +124,12 @@
 
 - 두번째 글자가 あ행모음이 아닌 경우에는 첫번째 입력한 대표자음을 입력글자로 확정함.
 
-3. 2 종류의 대표자음 배치를 제공
-
-- **Layer1** : 대표자음을 あ단으로 선정하고, 문자 사용 빈도를 고려하여 위치를 정함.
+3. 대표자음을 あ단으로 선정하고, 문자 사용 빈도를 고려하여 위치를 정함.
 
 <div align="center">
 
 ![alt text](images/Japan1Layer1Key1.png)
 ![alt text](images/Japan1Layer1Key2.png)
-
-</div>
-
-- **Layer2** : 각행의 대표자음을 사용 빈도가 높은 문자로 선정함. 조합모드에서 두번째 あ행모음 이외의 글자를 입력하여 빠른 문자 입력이 가능하도록 고려함.
-
-<div align="center">
-
-![alt text](images/Japan1Layer2Key1.png)
-![alt text](images/Japan1Layer2Key2.png)
 
 </div>
 
@@ -197,7 +155,7 @@
 
 5. 한자키/HK/YN 전환기능
 
-- **한자키** (RCtrl): Layer1 ↔ Layer2
+- **한자키** (RCtrl): 일본어1 ↔ 영어소문자 입력모드
 
 - **HK** 전환키(B): 히라가나(H) ↔ 가타카나(K)
 
@@ -217,7 +175,23 @@
 
 </div>
 
-#### 일본어3 (3-Layer)
+### 2️⃣ 일본어2_조합형_최빈자음
+
+1. 트레이 메뉴에서 "한글CAPS 일본어2_조합형" 선택 (한글 입력 모드 + CAPS Lock On)
+
+2. 일본어1_조합형(대표자음)과 동일한 방식이지만, 각행의 대표자음을 사용 빈도가 높은 문자로 선정함. 
+
+- 조합모드에서 두번째 あ행모음 이외의 글자를 입력하여 빠른 문자 입력이 가능하도록 고려함.
+
+<div align="center">
+
+![alt text](images/Japan1Layer2Key1.png)
+![alt text](images/Japan1Layer2Key2.png)
+
+</div>
+
+
+### 3️⃣ 일본어3_3Layer
 
 1. 트레이 메뉴에서 "한글CAPS 일본어3_3Layer" 선택 (한글 입력 모드 + CAPS Lock On)
 
@@ -265,7 +239,7 @@
 
 5. 한자키/HK/YN 전환기능
 
-- **한자키** (RCtrl): Layer1 → Layer2 → Layer3 → Layer1 
+- **한자키** (RCtrl): Layer1 → Layer2 → Layer3 → 영어소문자 입력모드 → Layer1 
 
 - **HK** 전환키(B): 히라가나(H) ↔ 가타카나(K)
 
@@ -323,24 +297,10 @@
 |6	|ん	|4.11%	|음절 마지막, 비음|
 
 
-### 3️⃣ 공학용 특수기호 입력하기
+### 3️⃣ 한글입력 모드에서 한자키로 특수기호 입력하기
 
-1. 트레이 메뉴에서 "한글CAPS 공학용_특수기호" 선택 (한글 입력 모드 + CAPS Lock On)
-2. 자주 사용하는 그리스어 문자와 수학, 공학 기호를 배치함.
-- 숫자열에는 원 영어 소문자, 화살표를 배치함.
-3. 한자키/한영키/CAPS키 전환기능
-- **한자키** (RCtrl): 영어 소문자 ↔ 공학용 특수기호
-- **한영키** (RAlt): 영어 대문자 ↔ 공학용 특수기호
-- **CAPS** : 한글 ↔ 공학용 특수기호
+#### 참고사항 : (한글자음+한자키) 특수기호 모음
 
-<div align="center">
-
-![alt text](images/EngineerKey1.png)
-![alt text](images/EngineerKey2.png)
-
-</div>
-
-4. 참고사항 : (한글자음+한자키) 특수기호 모음
 - ㄱ + 한자키 : 문장 부호 (', ", ·, ㆍ 등)
 - ㄴ + 한자키 : 괄호 기호 ([, ], 「, 」 등)
 - ㄷ + 한자키 : 수학 기호 (+, -, ×, ÷, = 등)
@@ -411,21 +371,6 @@ git clone https://github.com/stonkim93/IMEJapanese.git
 
 Visual Studio에서 `IMEJapanese.csproj`를 열고 빌드합니다.
 
-#### 📌 조건부 컴파일 (Optional Features)
-
-`IMEJapanese.csproj` 파일에서 메뉴 활성화 스위치(true/false)를 변경할 수 있다. 
-
-```xml
-  <PropertyGroup>
-    <EnableKeyboardLayout>true</EnableKeyboardLayout> <!-- 키보드 배열창 표시 -->
-    <EnableCapsEngineer>true</EnableCapsEngineer>     <!-- 공학용 특수기호 -->
-    <EnableCapsPali>true</EnableCapsPali>             <!-- Pali/Sanskrit -->
-    <EnableCapsJapanese1>true</EnableCapsJapanese1>   <!-- 일본어1 조합형 -->
-    <EnableCapsJapanese2>true</EnableCapsJapanese2>   <!-- 일본어1 조합형 -->
-    <EnableCapsJapanese3>true</EnableCapsJapanese3>   <!-- 일본어3 3Layer -->
-  </PropertyGroup>
-```
-
 #### 프레임워크 의존형 (소용량)
 
 ```bash
@@ -438,14 +383,15 @@ dotnet publish -c Release -r win-x64 --self-contained false /p:PublishSingleFile
 dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=true /p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-### 3️⃣ 4가지 실행 파일 다운로드
+### 3️⃣ 2가지 실행 파일 다운로드
 
 오른쪽의 **[Releases]** 탭에서 최신 버전의 `.zip` 파일을 다운로드 하고 압축을 해제합니다.
 
 | 파일명 | 용도 | 파일크기(KB) |
 |:---|:---|---:|
-| [IMEJapanese_full.zip](https://github.com/stonkim93/IMEJapanese/releases/download/IMEJapanese/IMEJapanese_full.zip) | Color Pointer + 4가지 Key-layout | 2976 |
-| [IMEJapanese_only.zip](https://github.com/stonkim93/IMEJapanese/releases/download/IMEJapanese/IMEJapanese_only.zip) | Color Pointer 기능만 | 492 |
+| [IMEJapanese.zip](https://github.com/stonkim93/IMEJapanese/releases/download/IMEJapanese/IMEJapanese.zip) | dotnet10 미포함 | 492 |
+| [IMEJapanese_with_dotnet10.zip](https://github.com/stonkim93/IMEJapanese/releases/download/IMEJapanese/IMEJapanese_with_dotnet10.zip) | dotnet10 포함 | 2976 |
+
 
 ### 4️⃣ 실행하기
 
@@ -463,25 +409,15 @@ dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=
 
 ### 1️⃣ 다중 입력 상태 관리 (Multi-State IME Engine)
 
-* **9가지 입력 상태 추적**: 기존의 5가지 상태(영어/한글/Pali)에서 9가지로 확장
-  - 기본 상태: 영어 소/대문자, 한글, Pali IME, 일본어 IME
-  - 한글CAPS 모드: 공학용, Pali/Sanskrit, 일본어1, 일본어3
+* **5가지 입력 상태 추적**
+  - 기본 상태: 영어 소/대문자, 한글, 한글CAPS 일본어, 일본어 IME
+  - 한글CAPS 모드: 일본어1, 일본어2, 일본어3
 
 * **상태 전환 엔진**: 언어 변경, Caps Lock, 한자키 입력을 감지하여 자동 상태 전환
 
 * **컨텍스트 동기화**: 창 전환 시에도 입력 상태를 정확히 유지
 
-
-### 2️⃣ 해상도 및 배율에 반응하는 반응형 시각화 (Dynamic Scaling)
-
-* **마우스 포인터 크기 동기화**: 사용자가 윈도우 설정에서 포인터 크기를 변경하거나 모니터 DPI를 변경하면 즉시 감지
-
-* **고해상도 렌더링**: 커서가 커져도 이미지를 단순 확대하지 않고, 변경된 배율에 맞춰 **기하학적 형태와 외곽선 두께를 고해상도로 다시 계산**하여 항상 선명한 커서 제공
-
-* **작은 원 위치 동기화**: 엑셀/한글의 작은 원도 포인터 크기에 비례하여 정확히 이동
-
-
-### 3️⃣ 문맥을 놓치지 않는 스마트 입력 감지 (Smart Context Tracking)
+### 2️⃣  문맥을 놓치지 않는 스마트 입력 감지 (Smart Context Tracking)
 
 * **3중 감지 엔진**:
   - ① 하드웨어 키보드 신호 직접 가로채기 (GlobalKeyboardHook)
@@ -494,7 +430,7 @@ dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=
 * **특수앱 최적화**: Excel, 아래한글, 게임 등 각 앱의 특성에 맞춘 별도의 감지 로직
 
 
-### 4️⃣ 메모리 낭비 제로, 극한의 성능 최적화 (Zero GC & Resource Management)
+### 3️⃣  메모리 낭비 제로, 극한의 성능 최적화 (Zero GC & Resource Management)
 
 * **마우스 끊김 원천 차단 (Zero GC)**:
   - 30ms마다 마우스를 감지하면서도 임시 공간(Stack)만 사용하고 즉시 비워버리는 특수 설계
@@ -504,7 +440,7 @@ dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=
 
 * **완벽한 자원 관리**: 색상이 바뀔 때마다 생성되는 비트맵을 사용 직후 즉시 파괴(`DeleteObject`)하여 메모리 누수 차단
 
-### 5️⃣ 외부 충돌 및 오류에 대비한 철벽 안전망 (Bulletproof Safety)
+### 4️⃣ 외부 충돌 및 오류에 대비한 철벽 안전망 (Bulletproof Safety)
 
 * **Thread-Safe 설계**: 듀얼 모니터 연결, 해상도 변경 시 발생하는 레이스 컨디션 차단
 
@@ -520,11 +456,9 @@ dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=
 
 - 아래의 기술적 난제에 대해 도움을 요청합니다.
 
-⚠️ 디스플레이 배율 설정과 접근성 설정의 포인터 크기 변경에 따라 포인터 크기 배율을 정확히 계산하고, 커진 포인터를 고해상도로 다시 그리는데 어려움이 있다. 현재는 고해상도로 포인터를 다시 그리기는 하지만, 윈도우 기본 포인터가 커지는 것보다 새로 그린 포인터가 2배 정도 더 크다. [고해상도를 유지하면 크기가 안맞고, 크기를 정확히 맞추면 해상도가 낮아지는 모순속에 있다.]
-
 ⚠️ "문자 입력창", "키보드 배열창", "작업표시줄", "트레이 아이콘"의 입력상태를 동기화 했으나, 트레이 메뉴를 선택하기 위해 마우스로 아이콘을 클릭하는 순간, 트레이 아이콘이 문자 입력창의 입력모드에서 영어 소문자(Caps Off일때) 또는 영어 대문자(Caps On일때)의 입력상태로 변한다. [지금은 일정부분 해결했으나 가끔 오작동함]
 
-⚠️ 일본어/Pali어 모드에서, MS오피스앱(엑셀,워드,파워포인터)이나 한글앱(hwp)에서 일본어/Pali어 글자를 선택하고 HK/YN/PE키를 누르면, 포인터가 작업중으로 바뀌고, 일정시간 후에 원래의 포인터로 돌아오고, 글자 전환이나 교체가 이루어 지지 않는다. [UI 스레드 블로킹 문제로, UI 스레드 분리 및 UI Automation을 이용하여 해결함]
+⚠️ 일본어 모드에서, MS오피스앱(엑셀,워드,파워포인터)이나 한글앱(hwp)에서 일본어 글자를 선택하고 HK/YN키를 누르면, 포인터가 작업중으로 바뀌고, 일정시간 후에 원래의 포인터로 돌아오고, 글자 전환이나 교체가 이루어 지지 않는다. [UI 스레드 블로킹 문제로, UI 스레드 분리 및 UI Automation을 이용하여 해결함]
 
 ## ❤️ 개발 후기 및 감사의 글
 
@@ -535,11 +469,6 @@ dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=
 - Coding & Debugging에는 Gemini 3.1 Pro (무료)의 도움을 많이 받았습니다.
 
 - 키보드 배열 검토에는 Claude Haiku 4.5 (무료)를 활용했습니다. 
-
-- Colr 마우스 포인터나 한글CAPS 입력모드를 사용하지 않고, 한자키를 Pali어 입력/전환 기능으로 사용하는 Pali어 입력 전용앱(IMEPali)을 개발했어요.
-
-- Made with ❤️ for multilingual writers, scholars, engineers, and Pāḷi researchers
-
 
 ## 📜 라이선스 (License)
 
