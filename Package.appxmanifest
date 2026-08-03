@@ -35,7 +35,7 @@
       <!-- [수정 2] VisualElements 필수 속성 모두 포함 -->
       <uap:VisualElements
         DisplayName="IMEJapanese"
-        Description="Pali and Sanskrit Input Method Editor"
+        Description="Japanese Input Method Editor"
         Square150x150Logo="images\Square150x150Logo.png"
         Square44x44Logo="images\Square44x44Logo.png"
         BackgroundColor="#FFFFFF">
@@ -59,11 +59,11 @@
     <!-- 
       설명: IMEJapanese는 일본어 입력 메서드를 제공합니다.
       필요한 이유: 전역 키보드 후킹을 통해 모든 애플리케이션에서 
-      키보드 입력을 감지하고 Pali/Sanskrit 문자로 변환합니다.
+      키보드 입력을 감지하고 Japanese 문자로 변환합니다.
       
       사용 권한:
       - 글로벌 키보드 입력 감지 (저수준 후킹)
-      - IME 모드 전환 (한글/영어/Pali)
+      - IME 모드 전환 (한글/영어/Japanese)
       - 시스템 전역 입력 방식 지원
     -->
     <rescap:Capability Name="runFullTrust" />

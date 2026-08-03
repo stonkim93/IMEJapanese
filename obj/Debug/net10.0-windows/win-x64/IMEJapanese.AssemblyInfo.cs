@@ -15,7 +15,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCopyrightAttribute("Copyright (c) 2024 stonkim93")]
 [assembly: System.Reflection.AssemblyDescriptionAttribute("IME state indicator for Windows")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0.0+4b3842e722ab6f0c81a66d68fc35204e46e76767")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0.0+adf552099f1d33603a1a57d62c35e19f7ff12488")]
 [assembly: System.Reflection.AssemblyProductAttribute("IMEJapanese")]
 [assembly: System.Reflection.AssemblyTitleAttribute("IMEJapanese")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
