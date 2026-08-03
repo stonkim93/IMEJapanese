@@ -1,0 +1,2 @@
+D:\VSCODE\IMEJapanese\bin\Release\net10.0-windows\win-x64\publish\IMEJapanese.pdb
+D:\VSCODE\IMEJapanese\bin\Release\net10.0-windows\win-x64\publish\IMEJapanese.exe

@@ -1,0 +1,15 @@
+D:\VSCODE\IMEJapanese\bin\Release\net10.0-windows\win-x64\IMEJapanese.exe
+D:\VSCODE\IMEJapanese\bin\Release\net10.0-windows\win-x64\IMEJapanese.deps.json
+D:\VSCODE\IMEJapanese\bin\Release\net10.0-windows\win-x64\IMEJapanese.runtimeconfig.json
+D:\VSCODE\IMEJapanese\bin\Release\net10.0-windows\win-x64\IMEJapanese.dll
+D:\VSCODE\IMEJapanese\bin\Release\net10.0-windows\win-x64\IMEJapanese.pdb
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.GeneratedMSBuildEditorConfig.editorconfig
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.AssemblyInfoInputs.cache
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.AssemblyInfo.cs
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.csproj.CoreCompileInputs.cache
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.sourcelink.json
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.dll
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\refint\IMEJapanese.dll
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.pdb
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\IMEJapanese.genruntimeconfig.cache
+D:\VSCODE\IMEJapanese\obj\Release\net10.0-windows\win-x64\ref\IMEJapanese.dll

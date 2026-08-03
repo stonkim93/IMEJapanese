@@ -20,7 +20,7 @@ namespace IMEJapanese
         public const int Right = 0x27;
         public const int Escape = 0x1B;
         public const int Backspace = 0x08;
-        
+
         public const int LWin = 0x5B;
         public const int RWin = 0x5C;
 
@@ -34,7 +34,7 @@ namespace IMEJapanese
         public const int vk_N = 0x4E;
         public const int vk_P = 0x50;
         public const int vk_Y = 0x59;
-        
+
         public const int OemYen = 0xDC;      // (\ |) → (¥ |)
         public const int OemColon = 0xBA;    // (; :) → (・ :)
         public const int OemComma = 0xBC;    // (, <) → (, 、)
