@@ -44,7 +44,3 @@ app.publish/
 **/bin/
 **/obj/
 
-#dictionary db
-Resources/
-Tools/
-Resources/MozcDictionary.json
