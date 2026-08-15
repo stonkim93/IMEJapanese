@@ -704,7 +704,7 @@ namespace IMEJapanese
 
             _menuItemCapsJapanese1 = AddMenuToggle("일본어1_조합형_대표자음", AppConfig.ShowCapsJapanese1, (s, e) => UpdateCapsMode(CapsMode.Japanese1));
             _menuItemCapsJapanese2 = AddMenuToggle("일본어2_조합형_최빈자음", AppConfig.ShowCapsJapanese2, (s, e) => UpdateCapsMode(CapsMode.Japanese2));
-            _menuItemCapsJapanese3 = AddMenuToggle("일본어3_3Layer", AppConfig.ShowCapsJapanese3, (s, e) => UpdateCapsMode(CapsMode.Japanese3));
+            _menuItemCapsJapanese3 = AddMenuToggle("일본어3_완성형_3Layer", AppConfig.ShowCapsJapanese3, (s, e) => UpdateCapsMode(CapsMode.Japanese3));
             AddMenuSeparatorIf(AppConfig.ShowCapsJapanese1 || AppConfig.ShowCapsJapanese2 || AppConfig.ShowCapsJapanese3);
 
             _menuItemUseMozc = new ToolStripMenuItem("Mozc 오프라인 한자변환", null, async (s, e) =>
