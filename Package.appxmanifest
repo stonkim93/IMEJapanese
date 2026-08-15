@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+  IgnorableNamespaces="uap rescap desktop">
+
+  <Identity
+    Name="stonkim93.IMEJapanese"
+    Publisher="CN=85788133-03F0-4EA6-BCBD-AD7FB7774B4F"
+    Version="1.0.0.0" />
+
+  <Properties>
+    <DisplayName>IMEJapanese</DisplayName>
+    <PublisherDisplayName>stonkim93</PublisherDisplayName>
+    <Logo>images\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="ko-KR" />
+    <Resource Language="en-US" />
+  </Resources>
+
+  <!-- [수정 1] Applications 구조 명확화 -->
+  <Applications>
+    <Application Id="App"
+                 Executable="IMEJapanese.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      
+      <!-- [수정 2] VisualElements 필수 속성 모두 포함 -->
+      <uap:VisualElements
+        DisplayName="IMEJapanese"
+        Description="Japanese Input Method Editor"
+        Square150x150Logo="images\Square150x150Logo.png"
+        Square44x44Logo="images\Square44x44Logo.png"
+        BackgroundColor="#FFFFFF">
+        <uap:SplashScreen Image="images\SplashScreen.png" />
+        <uap:InitialRotationPreference>
+          <uap:Rotation Preference="portrait" />
+        </uap:InitialRotationPreference>
+      </uap:VisualElements>
+
+      <!-- [수정 3] Desktop Bridge 확장 추가 (IME 호환성) -->
+      <Extensions>
+        <desktop:Extension Category="windows.toastNotificationActivation">
+          <desktop:ToastNotificationActivation ToastActivatorCLSID="00000000-0000-0000-0000-000000000000" />
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <!-- [수정 4] Capabilities 섹션: IME용 runFullTrust -->
+  <Capabilities>
+    <!-- 
+      설명: IMEJapanese는 일본어 입력 메서드를 제공합니다.
+      필요한 이유: 전역 키보드 후킹을 통해 모든 애플리케이션에서 
+      키보드 입력을 감지하고 Japanese 문자로 변환합니다.
+      
+      사용 권한:
+      - 글로벌 키보드 입력 감지 (저수준 후킹)
+      - IME 모드 전환 (한글/영어/Japanese)
+      - 시스템 전역 입력 방식 지원
+    -->
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+  <!-- [추가] Microsoft Store 정책 준수를 위한 메타데이터 -->
+  <mp:PhoneIdentity PhoneProductId="00000000-0000-0000-0000-000000000000" 
+                    PhonePublisherId="00000000-0000-0000-0000-000000000000" 
+                    xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" />
+
+</Package>

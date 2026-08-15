@@ -1,0 +1,116 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- MS Store 빌드 여부 토글 스위치 추가 -->
+    <IsStoreBuild>true</IsStoreBuild>
+
+    <!-- 타겟 프레임워크: 명시적으로 하나만 설정하여 다중 TargetFramework로 인한 중복 AssemblyAttributes 생성을 방지 -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+	<Nullable>enable</Nullable>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWpf>true</UseWpf>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <ApplicationIcon>images\IMEJapanese.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>false</SelfContained>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <NoWarn>$(NoWarn);CA1420</NoWarn>
+
+    <!-- Microsoft Store MSIX 패키징 및 앱 정보 설정 추가 -->
+    <EnableMsixTooling Condition="'$(IsStoreBuild)' == 'true'">true</EnableMsixTooling>
+    <GenerateAppxPackageOnBuild Condition="'$(IsStoreBuild)' == 'true'">false</GenerateAppxPackageOnBuild>
+    <AppxPackageSigningEnabled Condition="'$(IsStoreBuild)' == 'true'">true</AppxPackageSigningEnabled>
+    
+    <!-- 앱 기본 정보 -->
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
+    <InformationalVersion>1.1.0.0</InformationalVersion>
+    <Company>stonkim93</Company>
+    <Product>IMEJapanese</Product>
+    <Description>Japanese Input System</Description>
+    <Copyright>Copyright (c) 2024 stonkim93</Copyright>
+
+    <!-- Prevent SDK from auto-generating assembly attributes because custom attributes are defined above -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <!-- Prevent SDK from generating TargetFrameworkAttribute when custom attributes or multi-targeting-like patterns cause duplicates -->
+    <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
+  </PropertyGroup>
+
+  <!-- 기능 활성화 스위치 -->
+  <PropertyGroup>
+    <EnableKeyboardLayout>true</EnableKeyboardLayout>
+    <EnableCapsJapanese1>true</EnableCapsJapanese1>
+    <EnableCapsJapanese2>true</EnableCapsJapanese2>
+    <EnableCapsJapanese3>true</EnableCapsJapanese3>
+  </PropertyGroup>
+
+  <!-- 설정된 스위치에 따라 C# 코드용 조건부 상수(DefineConstants) 정의 -->
+  <PropertyGroup>
+    <DefineConstants Condition="'$(EnableKeyboardLayout)' == 'true'">$(DefineConstants);ENABLE_KEYBOARD_LAYOUT</DefineConstants>
+    <DefineConstants Condition="'$(EnableCapsJapanese1)' == 'true'">$(DefineConstants);ENABLE_CAPS_Japanese1</DefineConstants>
+    <DefineConstants Condition="'$(EnableCapsJapanese2)' == 'true'">$(DefineConstants);ENABLE_CAPS_Japanese2</DefineConstants>
+    <DefineConstants Condition="'$(EnableCapsJapanese3)' == 'true'">$(DefineConstants);ENABLE_CAPS_Japanese3</DefineConstants>
+  </PropertyGroup>
+
+  <!-- 조건부 이미지 리소스 포함 -->
+  <ItemGroup>
+    <EmbeddedResource Include="images\IMEJapanese.ico" />
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\EnglishKey1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\EnglishKey2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\KoreanKey1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\KoreanKey2.png" />
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Layer1Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Layer1Key2.png" />
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan1Layer2Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan1Layer2Key2.png" />
+    
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer1Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer1Key2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer2Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer2Key2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer3Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer3Key2.png" />
+  </ItemGroup>
+
+  <!-- MS Store 필수 파일들 및 SDK 참조 추가 -->
+  <ItemGroup Condition="'$(IsStoreBuild)' == 'true'">
+    <AppxManifest Include="Package.appxmanifest" />
+    <Content Include="images\Square44x44Logo.png" />
+    <Content Include="images\Square150x150Logo.png" />
+    <Content Include="images\StoreLogo.png" />
+    <Content Include="images\SplashScreen.png" />
+  </ItemGroup>
+
+  <!-- SDK 참조 -->
+  <ItemGroup Condition="'$(IsStoreBuild)' == 'true'">
+    <FrameworkReference Include="Microsoft.Windows.SDK.NET.Ref" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Exclude tools/source-generator helper files from main project compile to avoid duplicate entry points -->
+    <Compile Remove="Resources\**" />
+    <Compile Remove="Tools\**" />
+    <EmbeddedResource Remove="Resources\**" />
+    <EmbeddedResource Remove="Tools\**" />
+    <None Remove="Resources\**" />
+    <None Remove="Tools\**" />
+    <Page Remove="Resources\**" />
+    <Page Remove="Tools\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="mozc_dict_connect.db" />
+  </ItemGroup>
+
+	<!-- SQLite 라이브러리 추가 -->
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.2" />
+		<!-- 취약점 경고(NU1903) 해결을 위해 안전한 최신 버전으로 명시적 업데이트 -->
+		<PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.11" />
+	</ItemGroup>
+
+	<!-- Resources 폴더의 DB 및 바이너리 데이터를 빌드 출력 폴더로 복사 -->
+	
+</Project>
