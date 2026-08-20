@@ -62,18 +62,18 @@
     <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\KoreanKey1.png" />
     <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true'" Include="images\KoreanKey2.png" />
     
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Layer1Key1.png" />
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Layer1Key2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese1)' == 'true'" Include="images\Japan1Key2.png" />
     
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan1Layer2Key1.png" />
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan1Layer2Key2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan2Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese2)' == 'true'" Include="images\Japan2Key2.png" />
     
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer1Key1.png" />
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer1Key2.png" />
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer2Key1.png" />
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer2Key2.png" />
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer3Key1.png" />
-    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan2Layer3Key2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan3Layer1Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan3Layer1Key2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan3Layer2Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan3Layer2Key2.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan3Layer3Key1.png" />
+    <EmbeddedResource Condition="'$(EnableKeyboardLayout)' == 'true' And '$(EnableCapsJapanese3)' == 'true'" Include="images\Japan3Layer3Key2.png" />
   </ItemGroup>
 
   <!-- MS Store 필수 파일들 및 SDK 참조 추가 -->

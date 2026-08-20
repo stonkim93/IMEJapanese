@@ -1,4 +1,3 @@
-// MozcDictionary.cs
 #nullable enable
 using Microsoft.Data.Sqlite;
 using System;
@@ -132,35 +131,13 @@ namespace IMEJapanese
             if (string.IsNullOrEmpty(text)) return false;
             foreach (char c in text)
             {
-                if ((c >= 0x3040 && c <= 0x309F) ||
-                    (c >= 0x30A0 && c <= 0x30FF) ||
+                if (CharacterDatabase.IsValidCharacter(c) ||
                     (c >= 0x4E00 && c <= 0x9FAF))
                 {
                     return true;
                 }
             }
             return false;
-        }
-
-        // 입력된 문자열(가타카나 포함)을 히라가나로 정규화
-        public static string NormalizeToHiragana(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return string.Empty;
-
-            var sb = new StringBuilder(text.Length);
-            foreach (char c in text)
-            {
-                // 가타카나 유니코드 범위인 경우 히라가나로 변환 (- 0x0060)
-                if (c >= 0x30A1 && c <= 0x30F6)
-                {
-                    sb.Append((char)(c - 0x0060));
-                }
-                else
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
         }
 
         // SQLite DB에서 주어진 텍스트의 접두어(Prefix)에 일치하는 사전 항목을 조회
@@ -237,7 +214,10 @@ namespace IMEJapanese
                 System.Diagnostics.Debug.WriteLine($"[MozcDictionary] DB 조회 오류: {ex.Message}");
             }
 
-            return results;
+            // [수정됨] 방안 1: 최장 일치(Longest Match) 최우선, 동일 길이면 비용(Cost) 오름차순 정렬
+            return results.OrderByDescending(r => r.Length)
+                          .ThenBy(r => r.Entry.Cost)
+                          .ToList();
         }
         public static void Dispose()
         {
@@ -282,6 +262,7 @@ namespace IMEJapanese
         private readonly Action<int> _onSelectedIndex;
         private int _selectedIndex = 0;
         private readonly List<Label> _labels = new();
+        private bool _isClosing = false; // 중복 닫힘 방지 플래그
 
         // ─────────────────────────────────────────────────────────────
         // [핵심 변경 1] ShowWithoutActivation 오버라이드
@@ -328,11 +309,6 @@ namespace IMEJapanese
             TopMost = true;
             BackColor = Color.FromArgb(250, 250, 250);
             Padding = new Padding(6);
-            // [변경] KeyPreview와 KeyDown은 더 이상 사용하지 않음
-            // 키 입력은 GlobalInputHook → HandleKeyFromHook()을 통해 처리됩니다.
-            // [변경] Deactivate 이벤트 핸들러 제거
-            // 포커스를 받지 않으므로 Deactivate가 발생하지 않음
-            // 대신 MouseHookCallback에서 외부 클릭 시 DismissActiveOverlay()를 호출합니다.
         }
 
         private void BuildUI()
@@ -344,6 +320,7 @@ namespace IMEJapanese
 
             for (int i = 0; i < _displayTexts.Count; i++)
             {
+                int itemIndex = i; // 클로저 캡처용
                 var lbl = new Label()
                 {
                     AutoSize = true,
@@ -351,7 +328,26 @@ namespace IMEJapanese
                     ForeColor = Color.Black,
                     BackColor = Color.Transparent,
                     Text = _displayTexts[i],
+                    Cursor = Cursors.Hand // 마우스 커서 손가락 모양 표시
                 };
+
+                // 마우스 오버 시 선택 항목 업데이트 및 하이라이트
+                lbl.MouseEnter += (s, e) =>
+                {
+                    _selectedIndex = itemIndex;
+                    UpdateSelectionVisual();
+                };
+
+                // 마우스 클릭 시 항목 선택 및 확정
+                lbl.MouseDown += (s, e) =>
+                {
+                    if (e.Button == MouseButtons.Left)
+                    {
+                        _selectedIndex = itemIndex;
+                        SelectAndClose();
+                    }
+                };
+
                 _labels.Add(lbl);
                 Controls.Add(lbl);
 
@@ -372,6 +368,16 @@ namespace IMEJapanese
 
             Size = new Size(Math.Max(200, width), Math.Max(40, height + 8));
             UpdateSelectionVisual();
+
+            // 폼 여백(Padding 등) 클릭 시에도 현재 선택된 항목으로 확정
+            this.Cursor = Cursors.Hand;
+            this.MouseDown += (s, e) =>
+            {
+                if (e.Button == MouseButtons.Left)
+                {
+                    SelectAndClose();
+                }
+            };
         }
 
         // ─────────────────────────────────────────────────────────────
@@ -402,8 +408,6 @@ namespace IMEJapanese
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            // Focus() 및 _labels[0].Focus() 호출을 제거함
-            // 키 입력은 GlobalInputHook에서 처리됩니다.
             Debug.WriteLine("[KanjiOverlay] OnShown - 오버레이 표시됨 (포커스 이동 없음)");
         }
 
@@ -426,16 +430,15 @@ namespace IMEJapanese
         // ─────────────────────────────────────────────────────────────
         private void SelectAndClose()
         {
+            if (_isClosing) return; // 중복 닫힘 방지
+            _isClosing = true;
+
             if (_selectedIndex >= 0 && _selectedIndex < _displayTexts.Count)
                 _onSelectedIndex(_selectedIndex);
             else
                 _onSelectedIndex(-1);
             Close();
         }
-
-        // =============================================================
-        // 정적 API: GlobalInputHook에서 호출하는 메서드들
-        // =============================================================
 
         /// <summary>
         /// GlobalInputHook의 KbdHookCallback에서 호출됩니다.
@@ -466,21 +469,23 @@ namespace IMEJapanese
                 case 0x26: // Up - 위로 이동
                     overlay.BeginInvoke(new Action(() =>
                     {
+                        // 위로 이동 (최상단에서는 고정되거나 순환 가능)
                         overlay._selectedIndex = Math.Max(0, overlay._selectedIndex - 1);
                         overlay.UpdateSelectionVisual();
                     }));
                     return true;
 
                 case 0x28: // Down - 아래로 이동
+                case 0x20: // Space - 아래로 이동 (목록 이동)
                     overlay.BeginInvoke(new Action(() =>
                     {
-                        overlay._selectedIndex = Math.Min(overlay._labels.Count - 1, overlay._selectedIndex + 1);
+                        // 다음 항목으로 이동하되, 끝에 도달하면 처음으로 순환하도록 처리
+                        overlay._selectedIndex = (overlay._selectedIndex + 1) % overlay._labels.Count;
                         overlay.UpdateSelectionVisual();
                     }));
                     return true;
 
                 case 0x0D: // Enter - 선택 확정
-                case 0x20: // Space - 선택 확정
                     overlay.BeginInvoke(new Action(() =>
                     {
                         overlay.SelectAndClose();
@@ -533,7 +538,7 @@ namespace IMEJapanese
             var overlay = _activeOverlay;
             if (overlay == null || !overlay.Visible) return;
 
-            // 오버레이 영역 안의 클릭은 무시 (오버레이 내부 상호작용)
+            // 오버레이 영역 안의 클릭은 무시 (WinForms Mouse 이벤트가 내부 상호작용을 처리합니다.)
             if (overlay.Bounds.Contains(clickPoint)) return;
 
             // 오버레이 영역 밖 클릭 → 취소하고 닫기
@@ -722,5 +727,4 @@ namespace IMEJapanese
             return candidates.Distinct().ToList();
         }
     }
-
 }

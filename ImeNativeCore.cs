@@ -8,8 +8,6 @@ using System.Threading.Tasks;
 using System.Diagnostics;
 using System.Windows.Forms;
 using System.Windows.Automation;
-using System.Net.Http;
-using System.Text.Json;
 using System.Linq;
 
 namespace IMEJapanese
@@ -318,11 +316,6 @@ namespace IMEJapanese
             SendReplacement(backCount, selectedText);
             ClearCompositionBuffer();
 
-            // ─────────────────────────────────────────────────────────────
-            // [버그 픽스] SendReplacement 후 대상 앱의 포커스가 돌아오면서 
-            // 과도기적 IME 상태 혼란으로 인해 일시적으로 '영어 대문자' 상태가 되는 현상 차단.
-            // 문자열 치환 직후 대상 창의 한글(Japanese1/2/3) 상태를 강제로 복원합니다.
-            // ─────────────────────────────────────────────────────────────
             IntPtr hFore = ResolveContextHwnd();
             if (hFore != IntPtr.Zero)
             {
@@ -370,11 +363,6 @@ namespace IMEJapanese
             {
                 if (nCode >= 0 && (wParam.ToInt32() == NativeMethods.WM_LBUTTONDOWN || wParam.ToInt32() == NativeMethods.WM_RBUTTONDOWN))
                 {
-                    // ─────────────────────────────────────────────────────
-                    // [한자변환 수정] 한자 후보 활성 시 외부 클릭 감지 로직 완성
-                    // 마우스 훅에서 직접 외부 클릭을 감지하고 후보창을 닫습니다.
-                    // 이 경우 버퍼 초기화는 우회하여 타이핑 손실을 막습니다.
-                    // ─────────────────────────────────────────────────────
                     if (KanjiCandidateOverlay.IsActive)
                     {
                         int mouseX = Marshal.ReadInt32(lParam, 0);
@@ -436,7 +424,8 @@ namespace IMEJapanese
             if (hFore == IntPtr.Zero) { capsOn = false; isHangulMode = false; return false; }
 
             capsOn = (NativeMethods.GetKeyState(NativeMethods.VK_CAPITAL) & 0x0001) != 0;
-            isHangulMode = CachedIsHangulMode;
+            // 실시간 IME 한글 입력 모드 동적 확인
+            isHangulMode = ImeState.CheckHangulPublic(hFore);
             return true;
         }
 
@@ -463,7 +452,6 @@ namespace IMEJapanese
             }
             else if (msg == NativeMethods.WM_KEYUP || msg == NativeMethods.WM_SYSKEYUP)
             {
-                // 한자키 KEYUP을 처리된 경우 소비하여 OS 전달 방지
                 return (IntPtr)1;
             }
 
@@ -473,7 +461,12 @@ namespace IMEJapanese
         private static IntPtr HandleLanguageProcessorKey(int nCode, IntPtr wParam, IntPtr lParam, int msg, int vkCode, IntPtr hFore, bool capsOn, bool isHangulMode)
         {
             IKeyProcessor? keyProcessor = ActiveProcessor;
-            if (keyProcessor == null || ContextLangId != 0x0412) return BypassKeyboardHook(nCode, wParam, lParam);
+            if (keyProcessor == null) return BypassKeyboardHook(nCode, wParam, lParam);
+
+            // 활성 윈도우 스레드의 언어 레이아웃 동적 검증 (한국어 레이아웃 0x0412 확인)
+            uint threadId = NativeMethods.GetWindowThreadProcessId(hFore, out _);
+            ushort langId = (ushort)(NativeMethods.GetKeyboardLayout(threadId).ToInt64() & 0xFFFF);
+            if (langId != 0x0412) return BypassKeyboardHook(nCode, wParam, lParam);
 
             if (msg == NativeMethods.WM_KEYDOWN || msg == NativeMethods.WM_SYSKEYDOWN)
             {
@@ -482,8 +475,8 @@ namespace IMEJapanese
             }
             else if (msg == NativeMethods.WM_KEYUP || msg == NativeMethods.WM_SYSKEYUP)
             {
-                // A-Z 알파벳 입력 KEYUP 이벤트를 소비하여 OS 누수로 인한 중복입력 방지
-                if (capsOn && isHangulMode && vkCode >= 0x41 && vkCode <= 0x5A)
+                // 한글CAPS 모드일 때 처리되는 키(알파벳, 기호, 스페이스)의 KEYUP 이벤트를 확실히 차단
+                if (capsOn && isHangulMode && ((vkCode >= 0x41 && vkCode <= 0x5A) || KeyboardLayoutAnalyzer.IsSymbolOrNumber(vkCode) || vkCode == 0x20))
                 {
                     return (IntPtr)1;
                 }
@@ -503,31 +496,21 @@ namespace IMEJapanese
                 int msg = wParam.ToInt32();
                 Debug.WriteLine($"KbdHookCallback: vkCode={vkCode} wParam={wParam}");
 
-                // ─────────────────────────────────────────────────────
-                // [한자변환 수정] 한자 후보 오버레이 활성 시 키 가로채기
-                // 오버레이가 포커스를 받지 않으므로, 키보드 훅에서 직접
-                // 방향키/Enter/Esc/숫자키 등을 가로채서 오버레이에 전달합니다.
-                // ─────────────────────────────────────────────────────
                 if (KanjiCandidateOverlay.IsActive)
                 {
                     if (msg == NativeMethods.WM_KEYDOWN || msg == NativeMethods.WM_SYSKEYDOWN)
                     {
-                        // KEYDOWN: 오버레이에 키를 전달하고 소비
                         if (KanjiCandidateOverlay.HandleKeyFromHook(vkCode))
                         {
-                            return (IntPtr)1; // 키 소비 → 대상 앱에 전달 안 함
+                            return (IntPtr)1;
                         }
                     }
                     else if (msg == NativeMethods.WM_KEYUP || msg == NativeMethods.WM_SYSKEYUP)
                     {
-                        // KEYUP: 한자 후보 활성 중에는 KEYUP도 소비하여
-                        // 대상 앱에 의도치 않은 키 이벤트가 전달되지 않도록 방지합니다.
                         return (IntPtr)1;
                     }
                 }
 
-                // [수정 핵심 로직] 스페이스바 누수(Leak) 완벽 차단
-                // 한글 CAPS (일본어) 모드에서는 스페이스바의 DOWN, UP 이벤트를 무조건 먼저 가로채서 소비시킴
                 if (vkCode == 0x20)
                 {
                     if (TryResolveKeyboardContext(vkCode, out IntPtr hForeSpc, out bool capsOnSpc, out bool isHangulModeSpc, out _))
@@ -545,7 +528,7 @@ namespace IMEJapanese
                                     {
                                         if (HandleKanjiConversion(hForeSpc, compText, false))
                                         {
-                                            return (IntPtr)1; // 한자 변환 성공시 무조건 DOWN 소비
+                                            return (IntPtr)1;
                                         }
                                     }
                                     catch (Exception ex)
@@ -555,7 +538,6 @@ namespace IMEJapanese
                                 }
                                 else
                                 {
-                                    // 컴포지션 버퍼가 비어있을 때 선택영역 체크 후 변환
                                     Task.Run(() =>
                                     {
                                         string? selectedText = TextSelectionUtils.ReadSelectedText();
@@ -573,12 +555,12 @@ namespace IMEJapanese
                                             SendSpaceKey();
                                         }
                                     });
-                                    return (IntPtr)1; // DOWN 완전 소비
+                                    return (IntPtr)1;
                                 }
                             }
                             else if (msg == NativeMethods.WM_KEYUP || msg == NativeMethods.WM_SYSKEYUP)
                             {
-                                return (IntPtr)1; // 일본어 모드에서는 스페이스바 KEYUP 또한 무조건 소비하여 OS 누수 방지
+                                return (IntPtr)1;
                             }
                         }
                     }
@@ -599,7 +581,6 @@ namespace IMEJapanese
                 if (!TryResolveKeyboardContext(vkCode, out IntPtr hFore, out bool capsOn, out bool isHangulMode, out bool isHanjaOrRCtrl))
                     return BypassKeyboardHook(nCode, wParam, lParam);
 
-                // msg 파라미터 추가하여 이벤트 분기 처리 (중복 입력 방지)
                 if (isHanjaOrRCtrl) return HandleHanjaKey(nCode, wParam, lParam, msg, hFore, capsOn, isHangulMode);
 
                 return HandleLanguageProcessorKey(nCode, wParam, lParam, msg, vkCode, hFore, capsOn, isHangulMode);
@@ -614,13 +595,36 @@ namespace IMEJapanese
             try
             {
                 Trace.WriteLine($"HandleKanjiConversion: hFore={hFore}");
-                string? selectedText = !string.IsNullOrEmpty(inputComp) ? inputComp : GetCompositionText();
-                Trace.WriteLine($"HandleKanjiConversion: selectedText='{selectedText}'");
+                // 전체 원본 문자열 확보
+                string? fullText = !string.IsNullOrEmpty(inputComp) ? inputComp : GetCompositionText();
+                Trace.WriteLine($"HandleKanjiConversion: fullText='{fullText}'");
 
-                if (string.IsNullOrEmpty(selectedText)) return false;
-                if (!MozcDictionary.IsJapaneseText(selectedText)) return false;
+                if (string.IsNullOrEmpty(fullText)) return false;
 
-                // 사전 로딩 등 Blocking 코드를 Task 내부로 완전히 이동 (스페이스바 타임아웃 방지)
+                string targetToConvert = fullText;
+                string preservedPrefix = string.Empty;
+                string preservedSuffix = string.Empty;
+
+                // [수정됨] 최대 글자수 초과 시 보존 영역과 변환 영역 분리
+                if (fullText.Length > AppConfig.MaxKanjiConversionLength)
+                {
+                    int maxLen = AppConfig.MaxKanjiConversionLength;
+                    if (!isReplacingSelection)
+                    {
+                        // 키보드 입력: 뒤쪽(최신 입력)을 변환 대상으로, 앞쪽을 보존
+                        targetToConvert = fullText.Substring(fullText.Length - maxLen);
+                        preservedPrefix = fullText.Substring(0, fullText.Length - maxLen);
+                    }
+                    else
+                    {
+                        // 마우스 선택: 앞쪽을 변환 대상으로, 뒤쪽을 보존
+                        targetToConvert = fullText.Substring(0, maxLen);
+                        preservedSuffix = fullText.Substring(maxLen);
+                    }
+                }
+
+                if (!MozcDictionary.IsJapaneseText(targetToConvert)) return false;
+
                 Task.Run(async () =>
                 {
                     if (!MozcDictionary.IsLoaded)
@@ -644,11 +648,17 @@ namespace IMEJapanese
                     {
                         if (AppConfig.UseGoogleApi)
                         {
-                            var googleCandidates = await GoogleJapaneseInputApi.GetCandidatesAsync(selectedText);
+                            var googleCandidates = await GoogleJapaneseInputApi.GetCandidatesAsync(targetToConvert);
                             Trace.WriteLine($"HandleKanjiConversion: Google API candidates count={googleCandidates?.Count}");
                             if (googleCandidates != null && googleCandidates.Count > 0)
                             {
-                                MainForm.Instance?.BeginInvoke(new Action(() => MainForm.Instance.ShowKanjiCandidateAsync(googleCandidates, selectedText, isReplacingSelection)));
+                                // [수정됨] 변환된 후보들에 보존된 Prefix와 Suffix를 결합
+                                var finalCandidates = googleCandidates
+                                    .Select(c => preservedPrefix + c + preservedSuffix)
+                                    .ToList();
+
+                                MainForm.Instance?.BeginInvoke(new Action(() => 
+                                    MainForm.Instance.ShowKanjiCandidateAsync(finalCandidates, fullText, isReplacingSelection)));
                                 foundCandidates = true;
                                 return;
                             }
@@ -656,12 +666,18 @@ namespace IMEJapanese
 
                         if (AppConfig.EnableLocalConversion)
                         {
-                            var vits = BuildViterbiCandidates(selectedText, maxCandidates: 9);
-                            Trace.WriteLine($"HandleKanjiConversion: Viterbi candidates count={vits?.Count}");
-                            if (vits != null && vits.Count > 0)
+                            var entries = KanjiConverter.GetKanjiCandidates(targetToConvert);
+                            Trace.WriteLine($"HandleKanjiConversion: Local candidates count={entries.Count}");
+                            if (entries.Count > 0)
                             {
-                                Trace.WriteLine("HandleKanjiConversion: showing Viterbi candidates");
-                                MainForm.Instance?.BeginInvoke(new Action(() => MainForm.Instance.ShowKanjiCandidateAsync(vits, selectedText, isReplacingSelection)));
+                                // [수정됨] 로컬 사전 변환 후보들에 보존된 Prefix와 Suffix를 결합
+                                var finalLocalCandidates = entries
+                                    .Select(e => preservedPrefix + e.Kanji + preservedSuffix)
+                                    .ToList();
+
+                                Trace.WriteLine("HandleKanjiConversion: showing local candidates");
+                                MainForm.Instance?.BeginInvoke(new Action(() => 
+                                    MainForm.Instance.ShowKanjiCandidateAsync(finalLocalCandidates, fullText, isReplacingSelection)));
                                 foundCandidates = true;
                                 return;
                             }
@@ -674,19 +690,6 @@ namespace IMEJapanese
 
                     if (!foundCandidates)
                     {
-                        var replacements = BuildReplacementCandidates(selectedText);
-                        Trace.WriteLine($"HandleKanjiConversion: replacement candidates count={replacements?.Count}");
-                        if (replacements != null && replacements.Count > 0)
-                        {
-                            var objs = replacements.Select(r => r.ReplacementText).ToList();
-                            Trace.WriteLine("HandleKanjiConversion: showing replacement candidates");
-                            MainForm.Instance?.BeginInvoke(new Action(() => MainForm.Instance.ShowKanjiCandidateAsync(objs, selectedText, isReplacingSelection)));
-                            foundCandidates = true;
-                        }
-                    }
-
-                    if (!foundCandidates)
-                    {
                         ClearCompositionBuffer();
                         SendSpaceKey();
                     }
@@ -695,113 +698,6 @@ namespace IMEJapanese
                 return true;
             }
             catch { return false; }
-        }
-
-        internal sealed class ReplacementEntry
-        {
-            public string ReplacementText { get; init; } = string.Empty;
-            public string MatchedReading { get; init; } = string.Empty;
-            public MozcDictionary.KanjiEntry? SourceEntry { get; init; }
-            public override string ToString() => ReplacementText;
-        }
-
-        private static List<ReplacementEntry> BuildReplacementCandidates(string selectedText)
-        {
-            const int MaxCandidatesPerSubstring = 5;
-            const int MaxTotalCandidates = 12;
-
-            var results = new List<ReplacementEntry>();
-            string normalized = MozcDictionary.NormalizeToHiragana(selectedText);
-            int len = normalized.Length;
-
-            for (int start = 0; start < len; start++)
-            {
-                var matches = MozcDictionary.GetEntriesForReadingAt(normalized, start, MaxCandidatesPerSubstring);
-                if (matches == null || matches.Count == 0) continue;
-
-                foreach (var m in matches)
-                {
-                    int end = start + m.Length;
-                    string prefix = selectedText.Substring(0, start);
-                    string suffix = selectedText.Substring(Math.Min(end, selectedText.Length));
-                    var c = m.Entry;
-                    var rep = new ReplacementEntry
-                    {
-                        ReplacementText = prefix + c.Kanji + suffix,
-                        MatchedReading = normalized.Substring(start, m.Length),
-                        SourceEntry = c
-                    };
-                    results.Add(rep);
-                    if (results.Count >= MaxTotalCandidates) break;
-                }
-
-                if (results.Count >= MaxTotalCandidates) break;
-            }
-
-            var dedup = results.GroupBy(x => x.ReplacementText).Select(g => g.First()).ToList();
-            return dedup;
-        }
-
-        private static List<string> BuildViterbiCandidates(string selectedText, int maxCandidates = 5, int beamWidthPerPos = 6)
-        {
-            var results = new List<string>();
-            if (string.IsNullOrEmpty(selectedText)) return results;
-
-            string normalized = MozcDictionary.NormalizeToHiragana(selectedText);
-            int len = normalized.Length;
-
-            int beam = Math.Max(1, beamWidthPerPos);
-            var dp = new List<(int cost, List<MozcDictionary.KanjiEntry> chain)>[len + 1];
-            for (int i = 0; i <= len; i++) dp[i] = new List<(int, List<MozcDictionary.KanjiEntry>)>();
-
-            dp[0].Add((0, new List<MozcDictionary.KanjiEntry>()));
-
-            for (int pos = 0; pos < len; pos++)
-            {
-                if (dp[pos].Count == 0) continue;
-                var matches = MozcDictionary.GetEntriesForReadingAt(normalized, pos, maxPerSubstring: Math.Max(1, AppConfig.MaxCandidatesPerSubstring));
-                if (matches == null || matches.Count == 0) continue;
-
-                foreach (var partial in dp[pos])
-                {
-                    int prevRightId = partial.chain.Count > 0 ? partial.chain[^1].RightId : 0;
-
-                    foreach (var m in matches)
-                    {
-                        int next = pos + m.Length;
-
-                        int transitionCost = MozcDictionary.GetTransitionCost(prevRightId, m.Entry.LeftId);
-
-                        int newCost = partial.cost + m.Entry.Cost + transitionCost;
-                        var newChain = new List<MozcDictionary.KanjiEntry>(partial.chain) { m.Entry };
-                        dp[next].Add((newCost, newChain));
-                    }
-                }
-
-                for (int p = pos + 1; p <= Math.Min(len, pos + 32); p++)
-                {
-                    if (dp[p].Count > beam)
-                    {
-                        dp[p] = dp[p].OrderBy(t => t.cost).Take(beam).ToList();
-                    }
-                }
-            }
-
-            if (dp[len].Count == 0) return results;
-
-            var ordered = dp[len].OrderBy(t => t.cost).Take(Math.Max(1, Math.Min(maxCandidates, AppConfig.ViterbiMaxCandidates))).ToList();
-            foreach (var item in ordered)
-            {
-                var sb = new System.Text.StringBuilder();
-                foreach (var e in item.chain)
-                {
-                    sb.Append(e.Kanji);
-                }
-                string rep = sb.ToString();
-                if (!string.IsNullOrEmpty(rep)) results.Add(rep);
-            }
-
-            return results.Distinct().ToList();
         }
     }
 }

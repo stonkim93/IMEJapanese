@@ -32,6 +32,7 @@ namespace IMEJapanese
         public const int TrayIconSize = 32;
         public const float TrayLowercaseFontSize = 31F;
         public const float TrayUppercaseFontSize = 32F;
+        public static int MaxKanjiConversionLength = 20;
 
 #if ENABLE_CAPS_Japanese1
         public static bool ShowCapsJapanese1 = true;
@@ -1207,9 +1208,9 @@ namespace IMEJapanese
 
             if (_previousImeState == ImeState.State.EnglishLower || _previousImeState == ImeState.State.EnglishUpper || _previousImeState == ImeState.State.JapaneseIME) name = $"EnglishKey{suffix}.png";
             else if (_previousImeState == ImeState.State.Hangul) name = $"KoreanKey{suffix}.png";
-            else if (_activeCapsMode == CapsMode.Japanese1) name = $"Japan1Layer1Key{suffix}.png";
-            else if (_activeCapsMode == CapsMode.Japanese2) name = $"Japan1Layer2Key{suffix}.png";
-            else if (_activeCapsMode == CapsMode.Japanese3) name = $"Japan2Layer{(processor?.CurrentLayer ?? 1)}Key{suffix}.png";
+            else if (_activeCapsMode == CapsMode.Japanese1) name = $"Japan1Key{suffix}.png";
+            else if (_activeCapsMode == CapsMode.Japanese2) name = $"Japan2Key{suffix}.png";
+            else if (_activeCapsMode == CapsMode.Japanese3) name = $"Japan3Layer{(processor?.CurrentLayer ?? 1)}Key{suffix}.png";
             else name = $"KoreanKey{suffix}.png";
 
             if (name == null) return;
