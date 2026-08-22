@@ -33,8 +33,8 @@ namespace IMEJapanese
         private string? _romaji;
         public string Romaji => _romaji ??= CharacterDatabase.GetCharacterData(Code).Romaji;
 
-        private string? _koreanPronunciation;
-        public string KoreanPronunciation => _koreanPronunciation ??= CharacterDatabase.GetCharacterData(Code).KoreanPronunciation;
+        private string? _KoreanPron;
+        public string KoreanPron => _KoreanPron ??= CharacterDatabase.GetCharacterData(Code).KoreanPron;
 
         public bool IsSeion => Voicing == 0;
         public bool IsDakuten => Voicing == 1;
@@ -85,7 +85,7 @@ namespace IMEJapanese
             return this; // 상태 변화가 불가능한 문자인 경우 원본 유지
         }
 
-        public override string ToString() => $"{Code:000}: {Hiragana}/{Katakana} ({KoreanPronunciation})";
+        public override string ToString() => $"{Code:000}: {Hiragana}/{Katakana} ({KoreanPron})";
         public override bool Equals(object? obj) => obj is JapaneseCharacter other && Code == other.Code;
         public bool Equals(JapaneseCharacter other) => Code == other.Code;
         public override int GetHashCode() => Code.GetHashCode();
@@ -97,9 +97,9 @@ namespace IMEJapanese
     {
         public char Hiragana { get; init; }
         public char Katakana { get; init; }
-        public string EnglishCategory { get; init; } = string.Empty;
+        public string EngCategory { get; init; } = string.Empty;
         public string Romaji { get; init; } = string.Empty;
-        public string KoreanPronunciation { get; init; } = string.Empty;
+        public string KoreanPron { get; init; } = string.Empty;
     }
 
     public static class CharacterDatabase
@@ -107,100 +107,100 @@ namespace IMEJapanese
         private static readonly Dictionary<ushort, CharData> CodeToCharData = new()
         {
             // 기본 청음 (0) : 모음 ~ n, ん은 1000번이지만, わ행의 비어있는 920번에 배치하고, 영어 "ng"로 표시함.
-            { 000, new CharData { Hiragana = 'あ', Katakana = 'ア', EnglishCategory = "aa", Romaji = "a", KoreanPronunciation = "아" } },
-            { 010, new CharData { Hiragana = 'い', Katakana = 'イ', EnglishCategory = "ai", Romaji = "i", KoreanPronunciation = "이" } },
-            { 020, new CharData { Hiragana = 'う', Katakana = 'ウ', EnglishCategory = "au", Romaji = "u", KoreanPronunciation = "우" } },
-            { 030, new CharData { Hiragana = 'え', Katakana = 'エ', EnglishCategory = "ae", Romaji = "e", KoreanPronunciation = "에" } },
-            { 040, new CharData { Hiragana = 'お', Katakana = 'オ', EnglishCategory = "ao", Romaji = "o", KoreanPronunciation = "오" } },
-            { 100, new CharData { Hiragana = 'か', Katakana = 'カ', EnglishCategory = "ka", Romaji = "ka", KoreanPronunciation = "카" } },
-            { 110, new CharData { Hiragana = 'き', Katakana = 'キ', EnglishCategory = "ki", Romaji = "ki", KoreanPronunciation = "키" } },
-            { 120, new CharData { Hiragana = 'く', Katakana = 'ク', EnglishCategory = "ku", Romaji = "ku", KoreanPronunciation = "쿠" } },
-            { 130, new CharData { Hiragana = 'け', Katakana = 'ケ', EnglishCategory = "ke", Romaji = "ke", KoreanPronunciation = "케" } },
-            { 140, new CharData { Hiragana = 'こ', Katakana = 'コ', EnglishCategory = "ko", Romaji = "ko", KoreanPronunciation = "코" } },
-            { 200, new CharData { Hiragana = 'さ', Katakana = 'サ', EnglishCategory = "sa", Romaji = "sa", KoreanPronunciation = "사" } },
-            { 210, new CharData { Hiragana = 'し', Katakana = 'シ', EnglishCategory = "si", Romaji = "shi", KoreanPronunciation = "시" } },
-            { 220, new CharData { Hiragana = 'す', Katakana = 'ス', EnglishCategory = "su", Romaji = "su", KoreanPronunciation = "스" } },
-            { 230, new CharData { Hiragana = 'せ', Katakana = 'セ', EnglishCategory = "se", Romaji = "se", KoreanPronunciation = "세" } },
-            { 240, new CharData { Hiragana = 'そ', Katakana = 'ソ', EnglishCategory = "so", Romaji = "so", KoreanPronunciation = "소" } },
-            { 300, new CharData { Hiragana = 'た', Katakana = 'タ', EnglishCategory = "ta", Romaji = "ta", KoreanPronunciation = "타" } },
-            { 310, new CharData { Hiragana = 'ち', Katakana = 'チ', EnglishCategory = "ti", Romaji = "chi", KoreanPronunciation = "치" } },
-            { 320, new CharData { Hiragana = 'つ', Katakana = 'ツ', EnglishCategory = "tu", Romaji = "tsu", KoreanPronunciation = "츠" } },
-            { 330, new CharData { Hiragana = 'て', Katakana = 'テ', EnglishCategory = "te", Romaji = "te", KoreanPronunciation = "테" } },
-            { 340, new CharData { Hiragana = 'と', Katakana = 'ト', EnglishCategory = "to", Romaji = "to", KoreanPronunciation = "토" } },
-            { 400, new CharData { Hiragana = 'は', Katakana = 'ハ', EnglishCategory = "ha", Romaji = "ha", KoreanPronunciation = "하" } },
-            { 410, new CharData { Hiragana = 'ひ', Katakana = 'ヒ', EnglishCategory = "hi", Romaji = "hi", KoreanPronunciation = "히" } },
-            { 420, new CharData { Hiragana = 'ふ', Katakana = 'フ', EnglishCategory = "hu", Romaji = "fu", KoreanPronunciation = "후" } },
-            { 430, new CharData { Hiragana = 'へ', Katakana = 'ヘ', EnglishCategory = "he", Romaji = "he", KoreanPronunciation = "헤" } },
-            { 440, new CharData { Hiragana = 'ほ', Katakana = 'ホ', EnglishCategory = "ho", Romaji = "ho", KoreanPronunciation = "호" } },
-            { 500, new CharData { Hiragana = 'な', Katakana = 'ナ', EnglishCategory = "na", Romaji = "na", KoreanPronunciation = "나" } },
-            { 510, new CharData { Hiragana = 'に', Katakana = 'ニ', EnglishCategory = "ni", Romaji = "ni", KoreanPronunciation = "니" } },
-            { 520, new CharData { Hiragana = 'ぬ', Katakana = 'ヌ', EnglishCategory = "nu", Romaji = "nu", KoreanPronunciation = "누" } },
-            { 530, new CharData { Hiragana = 'ね', Katakana = 'ネ', EnglishCategory = "ne", Romaji = "ne", KoreanPronunciation = "네" } },
-            { 540, new CharData { Hiragana = 'の', Katakana = 'ノ', EnglishCategory = "no", Romaji = "no", KoreanPronunciation = "노" } },
-            { 600, new CharData { Hiragana = 'ま', Katakana = 'マ', EnglishCategory = "ma", Romaji = "ma", KoreanPronunciation = "마" } },
-            { 610, new CharData { Hiragana = 'み', Katakana = 'ミ', EnglishCategory = "mi", Romaji = "mi", KoreanPronunciation = "미" } },
-            { 620, new CharData { Hiragana = 'む', Katakana = 'ム', EnglishCategory = "mu", Romaji = "mu", KoreanPronunciation = "무" } },
-            { 630, new CharData { Hiragana = 'め', Katakana = 'メ', EnglishCategory = "me", Romaji = "me", KoreanPronunciation = "메" } },
-            { 640, new CharData { Hiragana = 'も', Katakana = 'モ', EnglishCategory = "mo", Romaji = "mo", KoreanPronunciation = "모" } },
-            { 700, new CharData { Hiragana = 'ら', Katakana = 'ラ', EnglishCategory = "ra", Romaji = "ra", KoreanPronunciation = "라" } },
-            { 710, new CharData { Hiragana = 'り', Katakana = 'リ', EnglishCategory = "ri", Romaji = "ri", KoreanPronunciation = "리" } },
-            { 720, new CharData { Hiragana = 'る', Katakana = 'ル', EnglishCategory = "ru", Romaji = "ru", KoreanPronunciation = "루" } },
-            { 730, new CharData { Hiragana = 'れ', Katakana = 'レ', EnglishCategory = "re", Romaji = "re", KoreanPronunciation = "레" } },
-            { 740, new CharData { Hiragana = 'ろ', Katakana = 'ロ', EnglishCategory = "ro", Romaji = "ro", KoreanPronunciation = "로" } },
-            { 800, new CharData { Hiragana = 'や', Katakana = 'ヤ', EnglishCategory = "ya", Romaji = "ya", KoreanPronunciation = "야" } },
-            { 820, new CharData { Hiragana = 'ゆ', Katakana = 'ユ', EnglishCategory = "yu", Romaji = "yu", KoreanPronunciation = "유" } },
-            { 840, new CharData { Hiragana = 'よ', Katakana = 'ヨ', EnglishCategory = "yo", Romaji = "yo", KoreanPronunciation = "요" } },
-            { 900, new CharData { Hiragana = 'わ', Katakana = 'ワ', EnglishCategory = "wa", Romaji = "wa", KoreanPronunciation = "와" } },
-            // { 910, new CharData { Hiragana = 'ゐ', Katakana = 'ヰ', EnglishCategory = "wi", Romaji = "wi", KoreanPronunciation = "위" } },  //910->902
-            { 920, new CharData { Hiragana = 'ん', Katakana = 'ン', EnglishCategory = "ng", Romaji = "n", KoreanPronunciation = "응" } },   //1000->920
-            // { 930, new CharData { Hiragana = 'ゑ', Katakana = 'ヱ', EnglishCategory = "we", Romaji = "we", KoreanPronunciation = "웨" } },  //930->942
-            { 940, new CharData { Hiragana = 'を', Katakana = 'ヲ', EnglishCategory = "wo", Romaji = "wo", KoreanPronunciation = "오" } },
+            { 000, new CharData { Hiragana = 'あ', Katakana = 'ア', EngCategory = "aa", Romaji = "a", KoreanPron = "아" } },
+            { 010, new CharData { Hiragana = 'い', Katakana = 'イ', EngCategory = "ai", Romaji = "i", KoreanPron = "이" } },
+            { 020, new CharData { Hiragana = 'う', Katakana = 'ウ', EngCategory = "au", Romaji = "u", KoreanPron = "우" } },
+            { 030, new CharData { Hiragana = 'え', Katakana = 'エ', EngCategory = "ae", Romaji = "e", KoreanPron = "에" } },
+            { 040, new CharData { Hiragana = 'お', Katakana = 'オ', EngCategory = "ao", Romaji = "o", KoreanPron = "오" } },
+            { 100, new CharData { Hiragana = 'か', Katakana = 'カ', EngCategory = "ka", Romaji = "ka", KoreanPron = "카" } },
+            { 110, new CharData { Hiragana = 'き', Katakana = 'キ', EngCategory = "ki", Romaji = "ki", KoreanPron = "키" } },
+            { 120, new CharData { Hiragana = 'く', Katakana = 'ク', EngCategory = "ku", Romaji = "ku", KoreanPron = "쿠" } },
+            { 130, new CharData { Hiragana = 'け', Katakana = 'ケ', EngCategory = "ke", Romaji = "ke", KoreanPron = "케" } },
+            { 140, new CharData { Hiragana = 'こ', Katakana = 'コ', EngCategory = "ko", Romaji = "ko", KoreanPron = "코" } },
+            { 200, new CharData { Hiragana = 'さ', Katakana = 'サ', EngCategory = "sa", Romaji = "sa", KoreanPron = "사" } },
+            { 210, new CharData { Hiragana = 'し', Katakana = 'シ', EngCategory = "si", Romaji = "shi", KoreanPron = "시" } },
+            { 220, new CharData { Hiragana = 'す', Katakana = 'ス', EngCategory = "su", Romaji = "su", KoreanPron = "스" } },
+            { 230, new CharData { Hiragana = 'せ', Katakana = 'セ', EngCategory = "se", Romaji = "se", KoreanPron = "세" } },
+            { 240, new CharData { Hiragana = 'そ', Katakana = 'ソ', EngCategory = "so", Romaji = "so", KoreanPron = "소" } },
+            { 300, new CharData { Hiragana = 'た', Katakana = 'タ', EngCategory = "ta", Romaji = "ta", KoreanPron = "타" } },
+            { 310, new CharData { Hiragana = 'ち', Katakana = 'チ', EngCategory = "ti", Romaji = "chi", KoreanPron = "치" } },
+            { 320, new CharData { Hiragana = 'つ', Katakana = 'ツ', EngCategory = "tu", Romaji = "tsu", KoreanPron = "츠" } },
+            { 330, new CharData { Hiragana = 'て', Katakana = 'テ', EngCategory = "te", Romaji = "te", KoreanPron = "테" } },
+            { 340, new CharData { Hiragana = 'と', Katakana = 'ト', EngCategory = "to", Romaji = "to", KoreanPron = "토" } },
+            { 400, new CharData { Hiragana = 'は', Katakana = 'ハ', EngCategory = "ha", Romaji = "ha", KoreanPron = "하" } },
+            { 410, new CharData { Hiragana = 'ひ', Katakana = 'ヒ', EngCategory = "hi", Romaji = "hi", KoreanPron = "히" } },
+            { 420, new CharData { Hiragana = 'ふ', Katakana = 'フ', EngCategory = "hu", Romaji = "fu", KoreanPron = "후" } },
+            { 430, new CharData { Hiragana = 'へ', Katakana = 'ヘ', EngCategory = "he", Romaji = "he", KoreanPron = "헤" } },
+            { 440, new CharData { Hiragana = 'ほ', Katakana = 'ホ', EngCategory = "ho", Romaji = "ho", KoreanPron = "호" } },
+            { 500, new CharData { Hiragana = 'な', Katakana = 'ナ', EngCategory = "na", Romaji = "na", KoreanPron = "나" } },
+            { 510, new CharData { Hiragana = 'に', Katakana = 'ニ', EngCategory = "ni", Romaji = "ni", KoreanPron = "니" } },
+            { 520, new CharData { Hiragana = 'ぬ', Katakana = 'ヌ', EngCategory = "nu", Romaji = "nu", KoreanPron = "누" } },
+            { 530, new CharData { Hiragana = 'ね', Katakana = 'ネ', EngCategory = "ne", Romaji = "ne", KoreanPron = "네" } },
+            { 540, new CharData { Hiragana = 'の', Katakana = 'ノ', EngCategory = "no", Romaji = "no", KoreanPron = "노" } },
+            { 600, new CharData { Hiragana = 'ま', Katakana = 'マ', EngCategory = "ma", Romaji = "ma", KoreanPron = "마" } },
+            { 610, new CharData { Hiragana = 'み', Katakana = 'ミ', EngCategory = "mi", Romaji = "mi", KoreanPron = "미" } },
+            { 620, new CharData { Hiragana = 'む', Katakana = 'ム', EngCategory = "mu", Romaji = "mu", KoreanPron = "무" } },
+            { 630, new CharData { Hiragana = 'め', Katakana = 'メ', EngCategory = "me", Romaji = "me", KoreanPron = "메" } },
+            { 640, new CharData { Hiragana = 'も', Katakana = 'モ', EngCategory = "mo", Romaji = "mo", KoreanPron = "모" } },
+            { 700, new CharData { Hiragana = 'ら', Katakana = 'ラ', EngCategory = "ra", Romaji = "ra", KoreanPron = "라" } },
+            { 710, new CharData { Hiragana = 'り', Katakana = 'リ', EngCategory = "ri", Romaji = "ri", KoreanPron = "리" } },
+            { 720, new CharData { Hiragana = 'る', Katakana = 'ル', EngCategory = "ru", Romaji = "ru", KoreanPron = "루" } },
+            { 730, new CharData { Hiragana = 'れ', Katakana = 'レ', EngCategory = "re", Romaji = "re", KoreanPron = "레" } },
+            { 740, new CharData { Hiragana = 'ろ', Katakana = 'ロ', EngCategory = "ro", Romaji = "ro", KoreanPron = "로" } },
+            { 800, new CharData { Hiragana = 'や', Katakana = 'ヤ', EngCategory = "ya", Romaji = "ya", KoreanPron = "야" } },
+            { 820, new CharData { Hiragana = 'ゆ', Katakana = 'ユ', EngCategory = "yu", Romaji = "yu", KoreanPron = "유" } },
+            { 840, new CharData { Hiragana = 'よ', Katakana = 'ヨ', EngCategory = "yo", Romaji = "yo", KoreanPron = "요" } },
+            { 900, new CharData { Hiragana = 'わ', Katakana = 'ワ', EngCategory = "wa", Romaji = "wa", KoreanPron = "와" } },
+            // { 910, new CharData { Hiragana = 'ゐ', Katakana = 'ヰ', EngCategory = "wi", Romaji = "wi", KoreanPron = "위" } },  //910->902
+            { 920, new CharData { Hiragana = 'ん', Katakana = 'ン', EngCategory = "ng", Romaji = "n", KoreanPron = "응" } },   //1000->920
+            // { 930, new CharData { Hiragana = 'ゑ', Katakana = 'ヱ', EngCategory = "we", Romaji = "we", KoreanPron = "웨" } },  //930->942
+            { 940, new CharData { Hiragana = 'を', Katakana = 'ヲ', EngCategory = "wo", Romaji = "wo", KoreanPron = "오" } },
 
             // 탁음 (1)
-            { 021, new CharData { Hiragana = 'ゔ', Katakana = 'ヴ', EnglishCategory = "vu", Romaji = "vu", KoreanPronunciation = "브" } },
-            { 101, new CharData { Hiragana = 'が', Katakana = 'ガ', EnglishCategory = "ga", Romaji = "ga", KoreanPronunciation = "가" } },
-            { 111, new CharData { Hiragana = 'ぎ', Katakana = 'ギ', EnglishCategory = "gi", Romaji = "gi", KoreanPronunciation = "기" } },
-            { 121, new CharData { Hiragana = 'ぐ', Katakana = 'グ', EnglishCategory = "gu", Romaji = "gu", KoreanPronunciation = "구" } },
-            { 131, new CharData { Hiragana = 'げ', Katakana = 'ゲ', EnglishCategory = "ge", Romaji = "ge", KoreanPronunciation = "게" } },
-            { 141, new CharData { Hiragana = 'ご', Katakana = 'ゴ', EnglishCategory = "go", Romaji = "go", KoreanPronunciation = "고" } },
-            { 201, new CharData { Hiragana = 'ざ', Katakana = 'ザ', EnglishCategory = "za", Romaji = "za", KoreanPronunciation = "자" } },
-            { 211, new CharData { Hiragana = 'じ', Katakana = 'ジ', EnglishCategory = "zi", Romaji = "ji", KoreanPronunciation = "지" } },
-            { 221, new CharData { Hiragana = 'ず', Katakana = 'ズ', EnglishCategory = "zu", Romaji = "zu", KoreanPronunciation = "즈" } },
-            { 231, new CharData { Hiragana = 'ぜ', Katakana = 'ゼ', EnglishCategory = "ze", Romaji = "ze", KoreanPronunciation = "제" } },
-            { 241, new CharData { Hiragana = 'ぞ', Katakana = 'ゾ', EnglishCategory = "zo", Romaji = "zo", KoreanPronunciation = "조" } },
-            { 301, new CharData { Hiragana = 'だ', Katakana = 'ダ', EnglishCategory = "da", Romaji = "da", KoreanPronunciation = "다" } },
-            { 311, new CharData { Hiragana = 'ぢ', Katakana = 'ヂ', EnglishCategory = "di", Romaji = "ji", KoreanPronunciation = "지" } },
-            { 321, new CharData { Hiragana = 'づ', Katakana = 'ヅ', EnglishCategory = "du", Romaji = "zu", KoreanPronunciation = "즈" } },
-            { 331, new CharData { Hiragana = 'で', Katakana = 'デ', EnglishCategory = "de", Romaji = "de", KoreanPronunciation = "데" } },
-            { 341, new CharData { Hiragana = 'ど', Katakana = 'ド', EnglishCategory = "do", Romaji = "do", KoreanPronunciation = "도" } },
-            { 401, new CharData { Hiragana = 'ば', Katakana = 'バ', EnglishCategory = "ba", Romaji = "ba", KoreanPronunciation = "바" } },
-            { 411, new CharData { Hiragana = 'び', Katakana = 'ビ', EnglishCategory = "bi", Romaji = "bi", KoreanPronunciation = "비" } },
-            { 421, new CharData { Hiragana = 'ぶ', Katakana = 'ブ', EnglishCategory = "bu", Romaji = "bu", KoreanPronunciation = "부" } },
-            { 431, new CharData { Hiragana = 'べ', Katakana = 'ベ', EnglishCategory = "be", Romaji = "be", KoreanPronunciation = "베" } },
-            { 441, new CharData { Hiragana = 'ぼ', Katakana = 'ボ', EnglishCategory = "bo", Romaji = "bo", KoreanPronunciation = "보" } },
+            { 021, new CharData { Hiragana = 'ゔ', Katakana = 'ヴ', EngCategory = "vu", Romaji = "vu", KoreanPron = "브" } },
+            { 101, new CharData { Hiragana = 'が', Katakana = 'ガ', EngCategory = "ga", Romaji = "ga", KoreanPron = "가" } },
+            { 111, new CharData { Hiragana = 'ぎ', Katakana = 'ギ', EngCategory = "gi", Romaji = "gi", KoreanPron = "기" } },
+            { 121, new CharData { Hiragana = 'ぐ', Katakana = 'グ', EngCategory = "gu", Romaji = "gu", KoreanPron = "구" } },
+            { 131, new CharData { Hiragana = 'げ', Katakana = 'ゲ', EngCategory = "ge", Romaji = "ge", KoreanPron = "게" } },
+            { 141, new CharData { Hiragana = 'ご', Katakana = 'ゴ', EngCategory = "go", Romaji = "go", KoreanPron = "고" } },
+            { 201, new CharData { Hiragana = 'ざ', Katakana = 'ザ', EngCategory = "za", Romaji = "za", KoreanPron = "자" } },
+            { 211, new CharData { Hiragana = 'じ', Katakana = 'ジ', EngCategory = "zi", Romaji = "ji", KoreanPron = "지" } },
+            { 221, new CharData { Hiragana = 'ず', Katakana = 'ズ', EngCategory = "zu", Romaji = "zu", KoreanPron = "즈" } },
+            { 231, new CharData { Hiragana = 'ぜ', Katakana = 'ゼ', EngCategory = "ze", Romaji = "ze", KoreanPron = "제" } },
+            { 241, new CharData { Hiragana = 'ぞ', Katakana = 'ゾ', EngCategory = "zo", Romaji = "zo", KoreanPron = "조" } },
+            { 301, new CharData { Hiragana = 'だ', Katakana = 'ダ', EngCategory = "da", Romaji = "da", KoreanPron = "다" } },
+            { 311, new CharData { Hiragana = 'ぢ', Katakana = 'ヂ', EngCategory = "di", Romaji = "ji", KoreanPron = "지" } },
+            { 321, new CharData { Hiragana = 'づ', Katakana = 'ヅ', EngCategory = "du", Romaji = "zu", KoreanPron = "즈" } },
+            { 331, new CharData { Hiragana = 'で', Katakana = 'デ', EngCategory = "de", Romaji = "de", KoreanPron = "데" } },
+            { 341, new CharData { Hiragana = 'ど', Katakana = 'ド', EngCategory = "do", Romaji = "do", KoreanPron = "도" } },
+            { 401, new CharData { Hiragana = 'ば', Katakana = 'バ', EngCategory = "ba", Romaji = "ba", KoreanPron = "바" } },
+            { 411, new CharData { Hiragana = 'び', Katakana = 'ビ', EngCategory = "bi", Romaji = "bi", KoreanPron = "비" } },
+            { 421, new CharData { Hiragana = 'ぶ', Katakana = 'ブ', EngCategory = "bu", Romaji = "bu", KoreanPron = "부" } },
+            { 431, new CharData { Hiragana = 'べ', Katakana = 'ベ', EngCategory = "be", Romaji = "be", KoreanPron = "베" } },
+            { 441, new CharData { Hiragana = 'ぼ', Katakana = 'ボ', EngCategory = "bo", Romaji = "bo", KoreanPron = "보" } },
 
             // 반탁음 (2) : わ행 청음인 ゐ와 ゑ의 키보드 입력을 위하여 わ와 を의 반탁음으로 추가함. YN전환키 기능으로 입력 가능해짐.
-            { 402, new CharData { Hiragana = 'ぱ', Katakana = 'パ', EnglishCategory = "pa", Romaji = "pa", KoreanPronunciation = "파" } },
-            { 412, new CharData { Hiragana = 'ぴ', Katakana = 'ピ', EnglishCategory = "pi", Romaji = "pi", KoreanPronunciation = "피" } },
-            { 422, new CharData { Hiragana = 'ぷ', Katakana = 'プ', EnglishCategory = "pu", Romaji = "pu", KoreanPronunciation = "푸" } },
-            { 432, new CharData { Hiragana = 'ぺ', Katakana = 'ペ', EnglishCategory = "pe", Romaji = "pe", KoreanPronunciation = "페" } },
-            { 442, new CharData { Hiragana = 'ぽ', Katakana = 'ポ', EnglishCategory = "po", Romaji = "po", KoreanPronunciation = "포" } },
-            { 902, new CharData { Hiragana = 'ゐ', Katakana = 'ヰ', EnglishCategory = "wi", Romaji = "wi", KoreanPronunciation = "위" } },  //910->902로 변경함
-            { 942, new CharData { Hiragana = 'ゑ', Katakana = 'ヱ', EnglishCategory = "we", Romaji = "we", KoreanPronunciation = "웨" } },  //930->942로 변경함
+            { 402, new CharData { Hiragana = 'ぱ', Katakana = 'パ', EngCategory = "pa", Romaji = "pa", KoreanPron = "파" } },
+            { 412, new CharData { Hiragana = 'ぴ', Katakana = 'ピ', EngCategory = "pi", Romaji = "pi", KoreanPron = "피" } },
+            { 422, new CharData { Hiragana = 'ぷ', Katakana = 'プ', EngCategory = "pu", Romaji = "pu", KoreanPron = "푸" } },
+            { 432, new CharData { Hiragana = 'ぺ', Katakana = 'ペ', EngCategory = "pe", Romaji = "pe", KoreanPron = "페" } },
+            { 442, new CharData { Hiragana = 'ぽ', Katakana = 'ポ', EngCategory = "po", Romaji = "po", KoreanPron = "포" } },
+            { 902, new CharData { Hiragana = 'ゐ', Katakana = 'ヰ', EngCategory = "wi", Romaji = "wi", KoreanPron = "위" } },  //910->902로 변경함
+            { 942, new CharData { Hiragana = 'ゑ', Katakana = 'ヱ', EngCategory = "we", Romaji = "we", KoreanPron = "웨" } },  //930->942로 변경함
 
             // 스테가나 (3) : 요음, 촉음 등 작은글씨, 문자앞에 x를 추가함
-            { 003, new CharData { Hiragana = 'ぁ', Katakana = 'ァ', EnglishCategory = "xaa", Romaji = "xa", KoreanPronunciation = "아" } },
-            { 013, new CharData { Hiragana = 'ぃ', Katakana = 'ィ', EnglishCategory = "xai", Romaji = "xi", KoreanPronunciation = "이" } },
-            { 023, new CharData { Hiragana = 'ぅ', Katakana = 'ゥ', EnglishCategory = "xau", Romaji = "xu", KoreanPronunciation = "우" } },
-            { 033, new CharData { Hiragana = 'ぇ', Katakana = 'ェ', EnglishCategory = "xae", Romaji = "xe", KoreanPronunciation = "에" } },
-            { 043, new CharData { Hiragana = 'ぉ', Katakana = 'ォ', EnglishCategory = "xao", Romaji = "xo", KoreanPronunciation = "오" } },
-            { 103, new CharData { Hiragana = 'ゕ', Katakana = 'ヵ', EnglishCategory = "xka", Romaji = "xka", KoreanPronunciation = "카" } },
-            { 133, new CharData { Hiragana = 'ゖ', Katakana = 'ヶ', EnglishCategory = "xke", Romaji = "xke", KoreanPronunciation = "케" } },
-            { 323, new CharData { Hiragana = 'っ', Katakana = 'ッ', EnglishCategory = "xtu", Romaji = "xtsu", KoreanPronunciation = "ㅅ" } }, //촉음은 한국어 받침 소리
-            { 803, new CharData { Hiragana = 'ゃ', Katakana = 'ャ', EnglishCategory = "xya", Romaji = "xya", KoreanPronunciation = "야" } },
-            { 823, new CharData { Hiragana = 'ゅ', Katakana = 'ュ', EnglishCategory = "xyu", Romaji = "xyu", KoreanPronunciation = "유" } },
-            { 843, new CharData { Hiragana = 'ょ', Katakana = 'ョ', EnglishCategory = "xyo", Romaji = "xyo", KoreanPronunciation = "요" } },
-            { 903, new CharData { Hiragana = 'ゎ', Katakana = 'ヮ', EnglishCategory = "xwa", Romaji = "xwa", KoreanPronunciation = "와" } },
+            { 003, new CharData { Hiragana = 'ぁ', Katakana = 'ァ', EngCategory = "xaa", Romaji = "xa", KoreanPron = "아" } },
+            { 013, new CharData { Hiragana = 'ぃ', Katakana = 'ィ', EngCategory = "xai", Romaji = "xi", KoreanPron = "이" } },
+            { 023, new CharData { Hiragana = 'ぅ', Katakana = 'ゥ', EngCategory = "xau", Romaji = "xu", KoreanPron = "우" } },
+            { 033, new CharData { Hiragana = 'ぇ', Katakana = 'ェ', EngCategory = "xae", Romaji = "xe", KoreanPron = "에" } },
+            { 043, new CharData { Hiragana = 'ぉ', Katakana = 'ォ', EngCategory = "xao", Romaji = "xo", KoreanPron = "오" } },
+            { 103, new CharData { Hiragana = 'ゕ', Katakana = 'ヵ', EngCategory = "xka", Romaji = "xka", KoreanPron = "카" } },
+            { 133, new CharData { Hiragana = 'ゖ', Katakana = 'ヶ', EngCategory = "xke", Romaji = "xke", KoreanPron = "케" } },
+            { 323, new CharData { Hiragana = 'っ', Katakana = 'ッ', EngCategory = "xtu", Romaji = "xtsu", KoreanPron = "ㅅ" } }, //촉음은 한국어 받침 소리
+            { 803, new CharData { Hiragana = 'ゃ', Katakana = 'ャ', EngCategory = "xya", Romaji = "xya", KoreanPron = "야" } },
+            { 823, new CharData { Hiragana = 'ゅ', Katakana = 'ュ', EngCategory = "xyu", Romaji = "xyu", KoreanPron = "유" } },
+            { 843, new CharData { Hiragana = 'ょ', Katakana = 'ョ', EngCategory = "xyo", Romaji = "xyo", KoreanPron = "요" } },
+            { 903, new CharData { Hiragana = 'ゎ', Katakana = 'ヮ', EngCategory = "xwa", Romaji = "xwa", KoreanPron = "와" } },
         };
 
         private static readonly Dictionary<char, ushort> HiraganaToCode = CodeToCharData.ToDictionary(x => x.Value.Hiragana, x => x.Key);

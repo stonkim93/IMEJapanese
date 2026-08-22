@@ -530,49 +530,63 @@ namespace IMEJapanese
 
     internal static class Japanese1Map
     {
-        private static readonly HashSet<int> _consonantKeys = new() { VCode.vk_Q, VCode.vk_W, VCode.vk_E, VCode.vk_R, VCode.vk_A, VCode.vk_S, VCode.vk_D, VCode.vk_F, VCode.vk_Z, VCode.vk_X, VCode.vk_C, VCode.vk_V };
-        private static readonly HashSet<int> _vowelKeys = new() { VCode.vk_H, VCode.vk_J, VCode.vk_K, VCode.vk_L, VCode.vk_M };
-
-        private static readonly Dictionary<(int Con, int Vow), (string Hira, string Kata)> _combineMap = new()
+        // 3자리 수 코드 기반 데이터 모델 적용
+        // Base(자음+탁음정보) + Offset(모음) 결합으로 최적화 처리
+        private static readonly Dictionary<int, ushort> _consonantBase = new()
         {
-            { (VCode.vk_Q, VCode.vk_H), ("ば","バ") }, { (VCode.vk_Q, VCode.vk_J), ("び","ビ") }, { (VCode.vk_Q, VCode.vk_K), ("ぶ","ブ") }, { (VCode.vk_Q, VCode.vk_M), ("べ","ベ") }, { (VCode.vk_Q, VCode.vk_L), ("ぼ","ボ") },
-            { (VCode.vk_W, VCode.vk_H), ("ざ","ザ") }, { (VCode.vk_W, VCode.vk_J), ("じ","ジ") }, { (VCode.vk_W, VCode.vk_K), ("ず","ズ") }, { (VCode.vk_W, VCode.vk_M), ("ぜ","ゼ") }, { (VCode.vk_W, VCode.vk_L), ("ぞ","ゾ") },
-            { (VCode.vk_E, VCode.vk_H), ("が","ガ") }, { (VCode.vk_E, VCode.vk_J), ("ぎ","ギ") }, { (VCode.vk_E, VCode.vk_K), ("ぐ","グ") }, { (VCode.vk_E, VCode.vk_M), ("げ","ゲ") }, { (VCode.vk_E, VCode.vk_L), ("ご","ゴ") },
-            { (VCode.vk_R, VCode.vk_H), ("だ","ダ") }, { (VCode.vk_R, VCode.vk_J), ("ぢ","ヂ") }, { (VCode.vk_R, VCode.vk_K), ("づ","ヅ") }, { (VCode.vk_R, VCode.vk_M), ("で","デ") }, { (VCode.vk_R, VCode.vk_L), ("ど","ド") },
-            { (VCode.vk_A, VCode.vk_H), ("は","ハ") }, { (VCode.vk_A, VCode.vk_J), ("ひ","ヒ") }, { (VCode.vk_A, VCode.vk_K), ("ふ","フ") }, { (VCode.vk_A, VCode.vk_M), ("へ","ヘ") }, { (VCode.vk_A, VCode.vk_L), ("ほ","ホ") },
-            { (VCode.vk_S, VCode.vk_H), ("さ","サ") }, { (VCode.vk_S, VCode.vk_J), ("し","シ") }, { (VCode.vk_S, VCode.vk_K), ("す","ス") }, { (VCode.vk_S, VCode.vk_M), ("せ","セ") }, { (VCode.vk_S, VCode.vk_L), ("そ","ソ") },
-            { (VCode.vk_D, VCode.vk_H), ("か","カ") }, { (VCode.vk_D, VCode.vk_J), ("き","キ") }, { (VCode.vk_D, VCode.vk_K), ("く","ク") }, { (VCode.vk_D, VCode.vk_M), ("け","ケ") }, { (VCode.vk_D, VCode.vk_L), ("こ","コ") },
-            { (VCode.vk_F, VCode.vk_H), ("た","タ") }, { (VCode.vk_F, VCode.vk_J), ("ち","チ") }, { (VCode.vk_F, VCode.vk_K), ("つ","ツ") }, { (VCode.vk_F, VCode.vk_M), ("て","テ") }, { (VCode.vk_F, VCode.vk_L), ("と","ト") },
-            { (VCode.vk_Z, VCode.vk_H), ("ぱ","パ") }, { (VCode.vk_Z, VCode.vk_J), ("ぴ","ピ") }, { (VCode.vk_Z, VCode.vk_K), ("ぷ","プ") }, { (VCode.vk_Z, VCode.vk_M), ("ぺ","ペ") }, { (VCode.vk_Z, VCode.vk_L), ("ぽ","ポ") },
-            { (VCode.vk_X, VCode.vk_H), ("ま","マ") }, { (VCode.vk_X, VCode.vk_J), ("み","ミ") }, { (VCode.vk_X, VCode.vk_K), ("む","ム") }, { (VCode.vk_X, VCode.vk_M), ("め","メ") }, { (VCode.vk_X, VCode.vk_L), ("も","モ") },
-            { (VCode.vk_C, VCode.vk_H), ("ら","ラ") }, { (VCode.vk_C, VCode.vk_J), ("り","リ") }, { (VCode.vk_C, VCode.vk_K), ("る","ル") }, { (VCode.vk_C, VCode.vk_M), ("れ","レ") }, { (VCode.vk_C, VCode.vk_L), ("ろ","ロ") },
-            { (VCode.vk_V, VCode.vk_H), ("な","ナ") }, { (VCode.vk_V, VCode.vk_J), ("に","ニ") }, { (VCode.vk_V, VCode.vk_K), ("ぬ","ヌ") }, { (VCode.vk_V, VCode.vk_M), ("ね","ネ") }, { (VCode.vk_V, VCode.vk_L), ("の","ノ") },
+            // { (vk_Q, vk_H), ("ば" : "バ") }, { (vk_Q, vk_J), ("び" : "ビ") }, { (vk_Q, vk_K), ("ぶ" : "ブ") }, { (vk_Q, vk_M), ("べ" : "ベ") }, { (vk_Q, vk_L), ("ぼ" : "ボ") },
+            // { (vk_W, vk_H), ("ざ" : "ザ") }, { (vk_W, vk_J), ("じ" : "ジ") }, { (vk_W, vk_K), ("ず" : "ズ") }, { (vk_W, vk_M), ("ぜ" : "ゼ") }, { (vk_W, vk_L), ("ぞ" : "ゾ") },
+            // { (vk_E, vk_H), ("が" : "ガ") }, { (vk_E, vk_J), ("ぎ" : "ギ") }, { (vk_E, vk_K), ("ぐ" : "グ") }, { (vk_E, vk_M), ("げ" : "ゲ") }, { (vk_E, vk_L), ("ご" : "ゴ") },
+            // { (vk_R, vk_H), ("だ" : "ダ") }, { (vk_R, vk_J), ("ぢ" : "ヂ") }, { (vk_R, vk_K), ("づ" : "ヅ") }, { (vk_R, vk_M), ("で" : "デ") }, { (vk_R, vk_L), ("ど" : "ド") },
+            // { (vk_A, vk_H), ("は" : "ハ") }, { (vk_A, vk_J), ("ひ" : "ヒ") }, { (vk_A, vk_K), ("ふ" : "フ") }, { (vk_A, vk_M), ("へ" : "ヘ") }, { (vk_A, vk_L), ("ほ" : "ホ") },
+            // { (vk_S, vk_H), ("さ" : "サ") }, { (vk_S, vk_J), ("し" : "シ") }, { (vk_S, vk_K), ("す" : "ス") }, { (vk_S, vk_M), ("せ" : "セ") }, { (vk_S, vk_L), ("そ" : "ソ") },
+            // { (vk_D, vk_H), ("か" : "カ") }, { (vk_D, vk_J), ("き" : "キ") }, { (vk_D, vk_K), ("く" : "ク") }, { (vk_D, vk_M), ("け" : "ケ") }, { (vk_D, vk_L), ("こ" : "コ") },
+            // { (vk_F, vk_H), ("た" : "タ") }, { (vk_F, vk_J), ("ち" : "チ") }, { (vk_F, vk_K), ("つ" : "ツ") }, { (vk_F, vk_M), ("て" : "テ") }, { (vk_F, vk_L), ("と" : "ト") },
+            // { (vk_Z, vk_H), ("ぱ" : "パ") }, { (vk_Z, vk_J), ("ぴ" : "ピ") }, { (vk_Z, vk_K), ("ぷ" : "プ") }, { (vk_Z, vk_M), ("ぺ" : "ペ") }, { (vk_Z, vk_L), ("ぽ" : "ポ") },
+            // { (vk_X, vk_H), ("ま" : "マ") }, { (vk_X, vk_J), ("み" : "ミ") }, { (vk_X, vk_K), ("む" : "ム") }, { (vk_X, vk_M), ("め" : "メ") }, { (vk_X, vk_L), ("も" : "モ") },
+            // { (vk_C, vk_H), ("ら" : "ラ") }, { (vk_C, vk_J), ("り" : "リ") }, { (vk_C, vk_K), ("る" : "ル") }, { (vk_C, vk_M), ("れ" : "レ") }, { (vk_C, vk_L), ("ろ" : "ロ") },
+            // { (vk_V, vk_H), ("な" : "ナ") }, { (vk_V, vk_J), ("に" : "ニ") }, { (vk_V, vk_K), ("ぬ" : "ヌ") }, { (vk_V, vk_M), ("ね" : "ネ") }, { (vk_V, vk_L), ("の" : "ノ") }
+
+            { VCode.vk_Q, 401 }, { VCode.vk_W, 201 }, { VCode.vk_E, 101 }, { VCode.vk_R, 301 },
+            { VCode.vk_A, 400 }, { VCode.vk_S, 200 }, { VCode.vk_D, 100 }, { VCode.vk_F, 300 },
+            { VCode.vk_Z, 402 }, { VCode.vk_X, 600 }, { VCode.vk_C, 700 }, { VCode.vk_V, 500 }
         };
 
-        private static readonly Dictionary<int, (string Hira, string Kata)> _soloMap = new()
+        private static readonly Dictionary<int, ushort> _vowelOffset = new()
         {
-            { VCode.vk_T, ("っ","ッ") }, { VCode.vk_G, ("ん","ン") },
-            { VCode.vk_Y, ("わ","ワ") }, { VCode.vk_U, ("を","ヲ") }, { VCode.vk_I, ("や","ヤ") }, { VCode.vk_O, ("よ","ヨ") }, { VCode.vk_P, ("ゆ","ユ") },
-            { VCode.vk_H, ("あ","ア") }, { VCode.vk_J, ("い","イ") }, { VCode.vk_K, ("う","ウ") }, { VCode.vk_L, ("お","オ") }, { VCode.vk_M, ("え","エ") }
+            // { vk_T, ("っ" : "ッ") }, { vk_G, ("ん" : "ン") },
+            // { vk_Y, ("わ" : "ワ") }, { vk_U, ("を" : "ヲ") }, { vk_I, ("や" : "ヤ") }, { vk_O, ("よ" : "ヨ") }, { vk_P, ("ゆ" : "ユ") },
+            // { vk_H, ("あ" : "ア") }, { vk_J, ("い" : "イ") }, { vk_K, ("う" : "ウ") }, { vk_L, ("お" : "オ") }, { vk_M, ("え" : "エ") }
+
+            { VCode.vk_H, 00 }, { VCode.vk_J, 10 }, { VCode.vk_K, 20 }, { VCode.vk_M, 30 }, { VCode.vk_L, 40 }
         };
 
-        private static readonly Dictionary<int, (string Hira, string Kata)> _previewMapL1 = new()
+        private static readonly Dictionary<int, ushort> _soloMap = new()
         {
-            { VCode.vk_Q, ("ば","バ") }, { VCode.vk_W, ("ざ","ザ") }, { VCode.vk_E, ("が","ガ") }, { VCode.vk_R, ("だ","ダ") }, 
-            { VCode.vk_A, ("は","ハ") }, { VCode.vk_S, ("さ","サ") }, { VCode.vk_D, ("か","カ") }, { VCode.vk_F, ("た","タ") }, 
-            { VCode.vk_Z, ("ぱ","パ") }, { VCode.vk_X, ("ま","マ") }, { VCode.vk_C, ("ら","ラ") }, { VCode.vk_V, ("な","ナ") },
+            // { vk_Q, ("ば" : "バ") }, { vk_W, ("ざ" : "ザ") }, { vk_E, ("が" : "ガ") }, { vk_R, ("だ" : "ダ") }, 
+            // { vk_A, ("は" : "ハ") }, { vk_S, ("さ" : "サ") }, { vk_D, ("か" : "カ") }, { vk_F, ("た" : "タ") }, 
+            // { vk_Z, ("ぱ" : "パ") }, { vk_X, ("ま" : "マ") }, { vk_C, ("ら" : "ラ") }, { vk_V, ("な" : "ナ") }
+
+            { VCode.vk_T, 323 }, { VCode.vk_G, 920 },
+            { VCode.vk_Y, 900 }, { VCode.vk_U, 940 }, { VCode.vk_I, 800 }, { VCode.vk_O, 840 }, { VCode.vk_P, 820 },
+            { VCode.vk_H, 000 }, { VCode.vk_J, 010 }, { VCode.vk_K, 020 }, { VCode.vk_L, 040 }, { VCode.vk_M, 030 }
         };
 
-        private static readonly Dictionary<int, (string Hira, string Kata)> _previewMapL2 = new()
+        // Layer2 모음 고정 매핑
+        private static readonly Dictionary<ushort, ushort> _previewMapL2 = new()
         {
-            { VCode.vk_Q, ("ば","バ") }, { VCode.vk_W, ("じ","ジ") }, { VCode.vk_E, ("が","ガ") }, { VCode.vk_R, ("で","デ") },
-            { VCode.vk_A, ("は","ハ") }, { VCode.vk_S, ("し","シ") }, { VCode.vk_D, ("か","カ") }, { VCode.vk_F, ("て","テ") }, 
-            { VCode.vk_Z, ("ぱ","パ") }, { VCode.vk_X, ("も","モ") }, { VCode.vk_C, ("る","ル") }, { VCode.vk_V, ("の","ノ") },
+            // { vk_Q, ("ば" : "バ") }, { vk_W, ("じ" : "ジ") }, { vk_E, ("が" : "ガ") }, { vk_R, ("で" : "デ") },
+            // { vk_A, ("は" : "ハ") }, { vk_S, ("し" : "シ") }, { vk_D, ("か" : "カ") }, { vk_F, ("て" : "テ") }, 
+            // { vk_Z, ("ぱ" : "パ") }, { vk_X, ("も" : "モ") }, { vk_C, ("る" : "ル") }, { vk_V, ("の" : "ノ") }
+
+            { 401, 401 }, { 201, 211 }, { 101, 101 }, { 301, 331 },
+            { 400, 400 }, { 200, 210 }, { 100, 100 }, { 300, 330 },
+            { 402, 402 }, { 600, 640 }, { 700, 720 }, { 500, 540 }
         };
 
         private static bool _isKatakana = false;
         private static bool _waitingVowel = false;
-        private static int _pendingConsonant = 0;
+        private static ushort _pendingConsonant = 0;
         private static string _pendingChar = "";
         private static string _lastOutputChar = "";
         private static int _ynToggleCount = 0;
@@ -630,8 +644,19 @@ namespace IMEJapanese
         public static bool ProcessKeyDownShared(int vKey, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
         {
             if (vKey is >= 0x21 and <= 0x28) { if (!isShift) SetLastOutputChar(""); return false; }
-            if (vKey == VCode.vk_B && capsOn && isHangulMode) { HandleHiraganaKatakanaTransformation(); return true; }
-            if (vKey == VCode.vk_N && capsOn && isHangulMode) { HandleYoonTransformation(); return true; }
+
+            // 리팩토링된 B키(HK) / N키(YN) 처리 부분
+            if (vKey == VCode.vk_B && capsOn && isHangulMode) 
+            { 
+                if (_waitingVowel) ApplyPendingTransformation(JapaneseCharacterProcessor.ProcessHK); else HandleHiraganaKatakanaTransformation(); 
+                return true; 
+            }
+            if (vKey == VCode.vk_N && capsOn && isHangulMode) 
+            { 
+                if (_waitingVowel) ApplyPendingTransformation(JapaneseCharacterProcessor.ProcessYN); else HandleYoonTransformation(); 
+                return true; 
+            }
+
             if (!capsOn || !isHangulMode) return false;
             if (TextSelectionUtils.IsConverting) return true;
 
@@ -655,8 +680,7 @@ namespace IMEJapanese
             if (keyResult == null)
             {
                 SetLastOutputChar("");
-                // 한글CAPS 모드에서 알파벳 키 유출(한글 입력) 방지를 위해 차단
-                if (vKey >= 0x41 && vKey <= 0x5A) return true;
+                if (vKey >= 0x41 && vKey <= 0x5A) return true; // 한글 변환 방지
                 return false;
             }
 
@@ -671,182 +695,280 @@ namespace IMEJapanese
         public static string? ProcessKey(int vKey, bool isShift)
         {
             bool useKatakana = isShift ^ _isKatakana;
+            string flushChar = ""; // 1) 미확정 문자 보존을 위한 임시 변수
 
-            string? punct = JapaneseTransformationHelper.ProcessPunctuation(vKey, useKatakana, SetLastOutputChar);
-            if (punct != null) return punct;
-
-            string? sym = JapaneseTransformationHelper.ProcessSymbolOrNumber(vKey, useKatakana, SetLastOutputChar);
-            if (sym != null) return sym;
-
-            if (vKey == VCode.vk_B || vKey == VCode.vk_N) return null;
-
-            if (_waitingVowel)
+            // 1) & 2) 미확정 문자 보존 및 상태 초기화
+            if (_waitingVowel && !_vowelOffset.ContainsKey(vKey))
             {
-                if (_vowelKeys.Contains(vKey))
+                flushChar = _pendingChar;
+                
+                // 대기 상태 완전히 초기화하여 다음 입력을 새 입력으로 처리할 수 있도록 정리
+                _waitingVowel = false;
+                _pendingConsonant = 0;
+                _pendingChar = "";
+                _ynToggleCount = 0;
+            }
+
+            string? newResult = null; // 2번째 키에 대한 새로운 결괏값
+
+            // 기존 기호 및 숫자 처리 로직
+            string? punct = JapaneseTransformationHelper.ProcessPunctuation(vKey, useKatakana, SetLastOutputChar);
+            if (punct != null)
+            {
+                newResult = punct;
+            }
+            else
+            {
+                string? sym = JapaneseTransformationHelper.ProcessSymbolOrNumber(vKey, useKatakana, SetLastOutputChar);
+                if (sym != null)
                 {
-                    var key = (_pendingConsonant, vKey);
-                    if (_combineMap.TryGetValue(key, out var combined))
+                    newResult = sym;
+                }
+                else if (vKey == VCode.vk_B || vKey == VCode.vk_N)
+                {
+                    newResult = null;
+                }
+                else if (_waitingVowel) // 위에서 모음이 아닌 경우는 걸러졌으므로, 여기는 반드시 모음 입력임
+                {
+                    if (_vowelOffset.TryGetValue(vKey, out ushort vOffset))
                     {
-                        string result = _isKatakana ? combined.Kata : combined.Hira;
+                        ushort code = (ushort)(_pendingConsonant + vOffset);
+                        var jpChar = JapaneseCharacter.FromCode(code);
+                        string result = _isKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
                         for (int i = 0; i < _ynToggleCount; i++) result = JapaneseCharacterProcessor.ProcessYN(result);
 
                         string currentPending = _pendingChar;
-                        string previewVow = vKey switch { VCode.vk_H => _isKatakana ? "ア" : "あ", VCode.vk_J => _isKatakana ? "イ" : "い", VCode.vk_K => _isKatakana ? "ウ" : "う", VCode.vk_M => _isKatakana ? "エ" : "え", VCode.vk_L => _isKatakana ? "オ" : "お", _ => "?" };                        
+                        var vowChar = JapaneseCharacter.FromCode(vOffset);
+                        string previewVow = _isKatakana ? vowChar.Katakana.ToString() : vowChar.Hiragana.ToString();
+                        
                         MainForm.Instance?.ShowOverlay($"{currentPending}+{previewVow}={result}");
 
-                        _waitingVowel = false; _pendingConsonant = 0; _pendingChar = ""; _ynToggleCount = 0; _lastOutputChar = result; return result;
+                        _waitingVowel = false; _pendingConsonant = 0; _pendingChar = ""; _ynToggleCount = 0; _lastOutputChar = result; 
+                        newResult = result;
                     }
                 }
+                else if (_consonantBase.TryGetValue(vKey, out ushort cBase))
+                {
+                    _waitingVowel = true; _pendingConsonant = cBase; _isKatakana = useKatakana; _ynToggleCount = 0; _pendingChar = GetPreview(cBase);
+                    
+                    MainForm.Instance?.ShowOverlay(_pendingChar, 0);
+                    newResult = "";
+                }
+                else if (_soloMap.TryGetValue(vKey, out ushort soloCode))
+                {
+                    var jpChar = JapaneseCharacter.FromCode(soloCode);
+                    string ch = useKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
+                    MainForm.Instance?.ShowOverlay(ch); 
+                    _lastOutputChar = ch; 
+                    newResult = ch;
+                }
+                else
+                {
+                    _lastOutputChar = "";
+                }
             }
-    
-            if (_consonantKeys.Contains(vKey))
+
+            // 3) 결합 반환
+            // 보존된 문자(flushChar)가 있거나, 새롭게 처리된 결과(newResult)가 있다면 결합하여 반환
+            if (!string.IsNullOrEmpty(flushChar) || newResult != null)
             {
-                _waitingVowel = true; _pendingConsonant = vKey; _isKatakana = useKatakana; _ynToggleCount = 0; _pendingChar = GetPreview(vKey);
-                
-                MainForm.Instance?.ShowOverlay(_pendingChar, 0);
-                return "";
+                return flushChar + (newResult ?? "");
             }
-    
-            if (_soloMap.TryGetValue(vKey, out var solo))
-            {
-                string ch = useKatakana ? solo.Kata : solo.Hira;
-                MainForm.Instance?.ShowOverlay(ch); 
-                _lastOutputChar = ch; return ch;
-            }
-    
-            _lastOutputChar = ""; return null;
+
+            return null;
+        }
+
+        private static void ApplyPendingTransformation(Func<string, string> transformFunc)
+        {
+            string preview = transformFunc(_pendingChar);
+            MainForm.Instance?.ShowOverlay($"{_pendingChar[0]}→{preview[0]}");
+            
+            GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(preview); GlobalInputHook.IsSending = false;
+            GlobalInputHook.AppendComposition(preview);
+            
+            _waitingVowel = false; _pendingConsonant = 0; _pendingChar = ""; _ynToggleCount = 0; _lastOutputChar = preview; 
         }
     
-        private static string GetPreview(int vKey)
+        private static string GetPreview(ushort baseCode)
         {
-            var map = CurrentLayer == 1 ? _previewMapL1 : _previewMapL2;
-            if (map.TryGetValue(vKey, out var p)) return _isKatakana ? p.Kata : p.Hira;
-            return "?";
+            ushort code = baseCode;
+            if (CurrentLayer == 2 && _previewMapL2.TryGetValue(baseCode, out ushort l2Code))
+            {
+                code = l2Code;
+            }
+            var jpChar = JapaneseCharacter.FromCode(code);
+            return _isKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
         }
     }
 
     internal static class Japanese3Map
     {
-        private static bool _isKatakana = false;
+        // 3자리 수 코드 기반 데이터 모델 적용
+        private static readonly Dictionary<int, ushort> _layer1Map = new()
+        {
+            // { vk_Q, ("レ" : "れ") }, { vk_W, ("ロ" : "ろ") }, { vk_E, ("ル" : "る") }, { vk_R, ("リ" : "り") }, { vk_T, ("ラ" : "ら") },
+            // { vk_A, ("ネ" : "ね") }, { vk_S, ("ノ" : "の") }, { vk_D, ("ヌ" : "ぬ") }, { vk_F, ("ニ" : "に") }, { vk_G, ("ナ" : "な") },
+            // { vk_Z, ("メ" : "め") }, { vk_X, ("モ" : "も") }, { vk_C, ("ム" : "む") }, { vk_V, ("ミ" : "み") }, { vk_B, ("MA" : "ま") },
+            // { vk_Y, ("ハ" : "は") }, { vk_U, ("ヒ" : "ひ") }, { vk_I, ("フ" : "ふ") }, { vk_O, ("HO" : "ほ") }, { vk_P, ("ヘ" : "へ") },
+            // { vk_H, ("ン" : "ん") }, { vk_J, ("ア" : "あ") }, { vk_K, ("イ" : "い") }, { vk_L, ("ウ" : "う") },
+            // { vk_N, ("オ" : "お") }, { vk_M, ("エ" : "え") }
+
+            { VCode.vk_Q, 730 }, { VCode.vk_W, 740 }, { VCode.vk_E, 720 }, { VCode.vk_R, 710 }, { VCode.vk_T, 700 }, 
+            { VCode.vk_A, 530 }, { VCode.vk_S, 540 }, { VCode.vk_D, 520 }, { VCode.vk_F, 510 }, { VCode.vk_G, 500 },
+            { VCode.vk_Z, 630 }, { VCode.vk_X, 640 }, { VCode.vk_C, 620 }, { VCode.vk_V, 610 }, { VCode.vk_B, 600 },
+            { VCode.vk_Y, 400 }, { VCode.vk_U, 410 }, { VCode.vk_I, 420 }, { VCode.vk_O, 440 }, { VCode.vk_P, 430 }, 
+            { VCode.vk_H, 920 }, { VCode.vk_J, 000 }, { VCode.vk_K, 010 }, { VCode.vk_L, 020 }, 
+            { VCode.vk_N, 040 }, { VCode.vk_M, 030 }
+        };
+
+        private static readonly Dictionary<int, ushort> _layer2Map = new()
+        {
+            // { vk_Q, ( "ケ" : "け") }, { vk_W, ( "コ" : "こ") }, { vk_E, ( "ク" : "く") }, { vk_R, ( "キ" : "き") }, { vk_T, ( "カ" : "か") },
+            // { vk_A, ( "テ" : "て") }, { vk_S, ( "ト" : "と") }, { vk_D, ( "ツ" : "つ") }, { vk_F, ( "チ" : "ち") }, { vk_G, ( "タ" : "た") },
+            // { vk_Z, ( "セ" : "せ") }, { vk_X, ( "ソ" : "そ") }, { vk_C, ( "스" : "す") }, { vk_V, ( "シ" : "し") }, { vk_B, ( "サ" : "さ") },
+            // { vk_Y, ( "パ" : "ぱ") }, { vk_U, ( "ピ" : "ぴ") }, { vk_I, ( "プ" : "ぷ") }, { vk_O, ( "PO" : "ぽ") }, { vk_P, ( "ペ" : "ぺ") }, 
+            // { vk_H, ( "ッ" : "っ") }, { vk_J, ( "ヤ" : "や") }, { vk_K, ( "ヨ" : "よ") }, { vk_L, ( "ユ" : "ゆ") }, 
+            // { vk_N, ( "ヲ" : "を") }, { vk_M, ( "ワ" : "わ") }
+
+            { VCode.vk_Q, 130 }, { VCode.vk_W, 140 }, { VCode.vk_E, 120 }, { VCode.vk_R, 110 }, { VCode.vk_T, 100 },
+            { VCode.vk_A, 330 }, { VCode.vk_S, 340 }, { VCode.vk_D, 320 }, { VCode.vk_F, 310 }, { VCode.vk_G, 300 },
+            { VCode.vk_Z, 230 }, { VCode.vk_X, 240 }, { VCode.vk_C, 220 }, { VCode.vk_V, 210 }, { VCode.vk_B, 200 },
+            { VCode.vk_Y, 402 }, { VCode.vk_U, 412 }, { VCode.vk_I, 422 }, { VCode.vk_O, 442 }, { VCode.vk_P, 432 }, 
+            { VCode.vk_H, 323 }, { VCode.vk_J, 800 }, { VCode.vk_K, 840 }, { VCode.vk_L, 820 }, 
+            { VCode.vk_N, 940 }, { VCode.vk_M, 900 }
+        };
+
+        private static readonly Dictionary<int, ushort> _layer3Map = new()
+        {
+            // { vk_Q, ( "ゲ" : "げ") }, { vk_W, ( "ゴ" : "ご") }, { vk_E, ( "グ" : "ぐ") }, { vk_R, ( "ギ" : "ぎ") }, { vk_T, ( "ガ" : "が") }, 
+            // { vk_A, ( "デ" : "で") }, { vk_S, ( "ド" : "ど") }, { vk_D, ( "ヅ" : "づ") }, { vk_F, ( "ヂ" : "ぢ") }, { vk_G, ( "ダ" : "だ") },
+            // { vk_Z, ( "ゼ" : "ぜ") }, { vk_X, ( "ゾ" : "ぞ") }, { vk_C, ( "ズ" : "ず") }, { vk_V, ( "ジ" : "じ") }, { vk_B, ( "ザ" : "ざ") }, 
+            // { vk_Y, ( "バ" : "ば") }, { vk_U, ( "ビ" : "び") }, { vk_I, ( "ブ" : "ぶ") }, { vk_O, ( "ボ" : "ぼ") }, { vk_P, ( "ベ" : "べ") }, 
+            // { vk_H, ( "ィ" : "ヴ") }, { vk_J, ( "ャ" : "ゃ") }, { vk_K, ( "ョ" : "ょ") }, { vk_L, ( "ュ" : "ゅ") }
+
+            { VCode.vk_Q, 131 }, { VCode.vk_W, 141 }, { VCode.vk_E, 121 }, { VCode.vk_R, 111 }, { VCode.vk_T, 101 }, 
+            { VCode.vk_A, 331 }, { VCode.vk_S, 341 }, { VCode.vk_D, 321 }, { VCode.vk_F, 311 }, { VCode.vk_G, 301 },
+            { VCode.vk_Z, 231 }, { VCode.vk_X, 241 }, { VCode.vk_C, 221 }, { VCode.vk_V, 211 }, { VCode.vk_B, 201 },
+            { VCode.vk_Y, 401 }, { VCode.vk_U, 411 }, { VCode.vk_I, 421 }, { VCode.vk_O, 441 }, { VCode.vk_P, 431 },
+            { VCode.vk_J, 803 }, { VCode.vk_K, 843 }, { VCode.vk_L, 823 } // {VCode.vk_H, ( 013 , 021 )}
+        };
+
+        private static bool _isVirtualShift = false;
         private static string _lastOutputChar = "";
+
+        public static bool IsVirtualShift => _isVirtualShift;
         public static int CurrentLayer { get; private set; } = 1;
 
-        public static bool IsKatakana => _isKatakana;
-
+        public static void SetLayer(int layer) => CurrentLayer = layer;
         public static void SetLastOutputChar(string ch) => _lastOutputChar = ch;
-
-        public static void CycleLayerOrSwitchToEnglish(IntPtr hFore) 
-        { 
-            if (CurrentLayer == 1)
-            {
-                CurrentLayer = 2;
-                MainForm.Instance?.ShowOverlay("Layer2");
-            }
-            else if (CurrentLayer == 2)
-            {
-                CurrentLayer = 3;
-                MainForm.Instance?.ShowOverlay("Layer3");
-            }
-            else
-            {
-                CurrentLayer = 1;
-                ImeState.SetHangulState(hFore, false);
-                NativeMethods.SimulateCapsLock();
-                MainForm.Instance?.ShowOverlay("영어 소문자 모드");
-            }
-        }
-
-        public static void TogglePendingHiraKataModeOnly() => _isKatakana = !_isKatakana;
+        
+        public static void ToggleVirtualShiftOnly() => _isVirtualShift = !_isVirtualShift;
 
         public static void HandleHiraganaKatakanaTransformation() =>
             JapaneseTransformationHelper.HandleHiraganaKatakana(_lastOutputChar, SetLastOutputChar, () => {
-                _isKatakana = !_isKatakana; 
+                _isVirtualShift = !_isVirtualShift; 
                 _lastOutputChar = ""; 
-                MainForm.Instance?.ShowOverlay(_isKatakana ? "Katakana" : "Hiragana");
+                MainForm.Instance?.ShowOverlay(_isVirtualShift ? "Katakana" : "Hiragana");
             });
 
         public static void HandleYoonTransformation() =>
             JapaneseTransformationHelper.HandleYoon(_lastOutputChar, SetLastOutputChar);
 
-        public static string? ProcessKey(int vKey, bool isShift)
+        public static bool ProcessKeyDownShared(int vKey, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
         {
-            bool useKatakana = isShift ^ _isKatakana;
+            if (vKey is >= 0x21 and <= 0x28) { if (!isShift) SetLastOutputChar(""); return false; }
+            if (vKey == VCode.vk_B && capsOn && isHangulMode) { HandleHiraganaKatakanaTransformation(); return true; }
+            if (vKey == VCode.vk_N && capsOn && isHangulMode) { HandleYoonTransformation(); return true; }
+            if (!capsOn || !isHangulMode) return false;
+            if (TextSelectionUtils.IsConverting) return true;
+
+            bool useKatakana = isShift ^ _isVirtualShift;
 
             string? punct = JapaneseTransformationHelper.ProcessPunctuation(vKey, useKatakana, SetLastOutputChar);
-            if (punct != null) return punct;
+            if (punct != null)
+            {
+                GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(punct); GlobalInputHook.IsSending = false;
+                GlobalInputHook.AppendComposition(punct);
+                return true;
+            }
 
             string? sym = JapaneseTransformationHelper.ProcessSymbolOrNumber(vKey, useKatakana, SetLastOutputChar);
-            if (sym != null) return sym;
+            if (sym != null)
+            {
+                GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(sym); GlobalInputHook.IsSending = false;
+                GlobalInputHook.AppendComposition(sym);
+                return true;
+            }
+
+            if (vKey == VCode.vk_B || vKey == VCode.vk_N) return true;
 
             string? ch = null;
+            if (CurrentLayer == 3 && vKey == VCode.vk_H)
+            {
+                ch = useKatakana ? "ィ" : "ヴ";
+            }
+            else
+            {
+                ushort? code = CurrentLayer switch
+                {
+                    1 => _layer1Map.TryGetValue(vKey, out var c) ? c : (ushort?)null,
+                    2 => _layer2Map.TryGetValue(vKey, out var c) ? c : (ushort?)null,
+                    3 => _layer3Map.TryGetValue(vKey, out var c) ? c : (ushort?)null,
+                    _ => null
+                };
 
-            if (CurrentLayer == 1)
-            {
-                ch = vKey switch
+                if (code.HasValue)
                 {
-                    VCode.vk_Q => useKatakana ? "レ" : "れ", VCode.vk_W => useKatakana ? "ロ" : "ろ", VCode.vk_E => useKatakana ? "ル" : "る", VCode.vk_R => useKatakana ? "リ" : "り", VCode.vk_T => useKatakana ? "ラ" : "ら", 
-                    VCode.vk_Y => useKatakana ? "ハ" : "は", VCode.vk_U => useKatakana ? "ヒ" : "ひ", VCode.vk_I => useKatakana ? "フ" : "ふ", VCode.vk_O => useKatakana ? "ホ" : "ほ", VCode.vk_P => useKatakana ? "ヘ" : "へ", 
-                    VCode.vk_A => useKatakana ? "ネ" : "ね", VCode.vk_S => useKatakana ? "ノ" : "の", VCode.vk_D => useKatakana ? "ヌ" : "ぬ", VCode.vk_F => useKatakana ? "ニ" : "に", VCode.vk_G => useKatakana ? "ナ" : "な",
-                    VCode.vk_H => useKatakana ? "ン" : "ん", VCode.vk_J => useKatakana ? "ア" : "あ", VCode.vk_K => useKatakana ? "イ" : "い", VCode.vk_L => useKatakana ? "ウ" : "う", 
-                    VCode.vk_Z => useKatakana ? "メ" : "め", VCode.vk_X => useKatakana ? "モ" : "も", VCode.vk_C => useKatakana ? "ム" : "む", VCode.vk_V => useKatakana ? "ミ" : "み", VCode.vk_B => useKatakana ? "マ" : "ま",
-                    VCode.vk_N => useKatakana ? "オ" : "お", VCode.vk_M => useKatakana ? "エ" : "え",
-                    _ => null
-                };
-            }
-            else if (CurrentLayer == 2)
-            {
-                ch = vKey switch
-                {
-                    VCode.vk_Q => useKatakana ? "ケ" : "け", VCode.vk_W => useKatakana ? "コ" : "こ", VCode.vk_E => useKatakana ? "ク" : "く", VCode.vk_R => useKatakana ? "キ" : "き", VCode.vk_T => useKatakana ? "カ" : "か",
-                    VCode.vk_Y => useKatakana ? "パ" : "ぱ", VCode.vk_U => useKatakana ? "ピ" : "ぴ", VCode.vk_I => useKatakana ? "プ" : "ぷ", VCode.vk_O => useKatakana ? "ポ" : "ぽ", VCode.vk_P => useKatakana ? "ペ" : "ぺ", 
-                    VCode.vk_A => useKatakana ? "テ" : "て", VCode.vk_S => useKatakana ? "ト" : "と", VCode.vk_D => useKatakana ? "ツ" : "つ", VCode.vk_F => useKatakana ? "チ" : "ち", VCode.vk_G => useKatakana ? "タ" : "た",
-                    VCode.vk_H => useKatakana ? "ッ" : "っ", VCode.vk_J => useKatakana ? "ヤ" : "や", VCode.vk_K => useKatakana ? "ヨ" : "よ", VCode.vk_L => useKatakana ? "ユ" : "ゆ", 
-                    VCode.vk_Z => useKatakana ? "セ" : "せ", VCode.vk_X => useKatakana ? "ソ" : "そ", VCode.vk_C => useKatakana ? "스" : "す", VCode.vk_V => useKatakana ? "シ" : "し", VCode.vk_B => useKatakana ? "サ" : "さ",
-                    VCode.vk_N => useKatakana ? "ヲ" : "を", VCode.vk_M => useKatakana ? "ワ" : "わ", 
-                    _ => null
-                };
-            }
-            else if (CurrentLayer == 3)
-            {
-                ch = vKey switch
-                {
-                    VCode.vk_Q => useKatakana ? "ゲ" : "げ", VCode.vk_W => useKatakana ? "ゴ" : "ご", VCode.vk_E => useKatakana ? "グ" : "ぐ", VCode.vk_R => useKatakana ? "ギ" : "ぎ", VCode.vk_T => useKatakana ? "ガ" : "が", 
-                    VCode.vk_Y => useKatakana ? "バ" : "ば", VCode.vk_U => useKatakana ? "ビ" : "び", VCode.vk_I => useKatakana ? "ブ" : "ぶ", VCode.vk_O => useKatakana ? "ボ" : "ぼ", VCode.vk_P => useKatakana ? "ベ" : "べ", 
-                    VCode.vk_A => useKatakana ? "デ" : "で", VCode.vk_S => useKatakana ? "ド" : "ど", VCode.vk_D => useKatakana ? "ヅ" : "づ", VCode.vk_F => useKatakana ? "ヂ" : "ぢ", VCode.vk_G => useKatakana ? "ダ" : "だ",
-                    VCode.vk_H => useKatakana ? "ィ" : "ヴ", VCode.vk_J => useKatakana ? "ャ" : "ゃ", VCode.vk_K => useKatakana ? "ョ" : "ょ", VCode.vk_L => useKatakana ? "ュ" : "ゅ", 
-                    VCode.vk_Z => useKatakana ? "ゼ" : "ぜ", VCode.vk_X => useKatakana ? "ゾ" : "ぞ", VCode.vk_C => useKatakana ? "ズ" : "ず", VCode.vk_V => useKatakana ? "ジ" : "じ", VCode.vk_B => useKatakana ? "ザ" : "ざ", 
-                    _ => null
-                };
+                    var jpChar = JapaneseCharacter.FromCode(code.Value);
+                    ch = useKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
+                }
             }
 
-            if (ch != null) 
-            { 
-                MainForm.Instance?.ShowOverlay(ch); 
-                _lastOutputChar = ch; return ch; 
+            if (ch != null)
+            {
+                GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(ch); GlobalInputHook.IsSending = false;
+                GlobalInputHook.AppendComposition(ch);
+                MainForm.Instance?.ShowOverlay(ch);
+                _lastOutputChar = ch; return true;
             }
-            return null;
+
+            _lastOutputChar = "";
+            if (vKey >= 0x41 && vKey <= 0x5A) return true;
+            return false;
         }
     }
 
     internal class Japanese3Processor : IKeyProcessor
     {
-        public bool IsVirtualShift => Japanese3Map.IsKatakana;
+        public bool IsVirtualShift => Japanese3Map.IsVirtualShift;
         public int CurrentLayer => Japanese3Map.CurrentLayer;
-
-        public void ToggleVirtualShift() => Japanese3Map.TogglePendingHiraKataModeOnly();
+        public void ToggleVirtualShift() => Japanese3Map.ToggleVirtualShiftOnly();
 
         public bool ProcessHanjaKey(IntPtr hFore, bool capsOn, bool isHangulMode)
         {
-            if (isHangulMode && capsOn) 
-            { 
-                Japanese3Map.CycleLayerOrSwitchToEnglish(hFore);
+            if (isHangulMode && capsOn)
+            {
+                int newLayer = Japanese3Map.CurrentLayer + 1;
+                if (newLayer > 3)
+                {
+                    Japanese3Map.SetLayer(1);
+                    ImeState.SetHangulState(hFore, false);
+                    NativeMethods.SimulateCapsLock();
+                    MainForm.Instance?.ShowOverlay("영어 소문자 모드");
+                }
+                else
+                {
+                    Japanese3Map.SetLayer(newLayer);
+                    MainForm.Instance?.ShowOverlay($"일본어3_Layer{newLayer}");
+                }
                 return true;
             }
-            if (!isHangulMode || !capsOn) 
+            if (!isHangulMode || !capsOn)
             {
+                Japanese3Map.SetLayer(1);
                 ImeState.SetHangulState(hFore, true);
                 if (!capsOn) NativeMethods.SimulateCapsLock();
-                MainForm.Instance?.ShowOverlay("Layer" + Japanese3Map.CurrentLayer);
+                MainForm.Instance?.ShowOverlay("일본어3_Layer1");
                 return true;
             }
             return false;
@@ -854,32 +976,10 @@ namespace IMEJapanese
 
         public bool ProcessKeyDown(int vKey, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
         {
-            isShift = KeyboardLayoutAnalyzer.CheckCopilotShift(isShift);
-
-            if (vKey is >= 0x21 and <= 0x28) { if (!isShift) Japanese3Map.SetLastOutputChar(""); return false; }
-
-            if (Japanese3Map.CurrentLayer == 3)
-            {
-                if (vKey == VCode.vk_N && capsOn && isHangulMode ) { Japanese3Map.HandleHiraganaKatakanaTransformation(); return true; }
-                if (vKey == VCode.vk_M && capsOn && isHangulMode ) { Japanese3Map.HandleYoonTransformation(); return true; }
-            }
-            if (!capsOn || !isHangulMode) return false;
-            if (TextSelectionUtils.IsConverting) return true;
-
-            string? keyResult = Japanese3Map.ProcessKey(vKey, isShift);
-            if (keyResult == null) { Japanese3Map.SetLastOutputChar(""); return false; }
-
-            if (keyResult.Length > 0)
-            {
-                GlobalInputHook.IsSending = true; 
-                NativeMethods.SendUnicodeString(keyResult); 
-                GlobalInputHook.IsSending = false; 
-                GlobalInputHook.AppendComposition(keyResult);
-            }
-            return true;
+            return Japanese3Map.ProcessKeyDownShared(vKey, isShift, capsOn, hFore, isHangulMode);
         }
 
-        public void OnMouseClick() 
+        public void OnMouseClick()
         {
             Japanese3Map.SetLastOutputChar("");
             GlobalInputHook.ClearCompositionBuffer();
