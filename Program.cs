@@ -19,97 +19,6 @@ using Microsoft.Win32;
 
 namespace IMEJapanese
 {
-    #region [ 사용자 설정 영역 (AppConfig) ]
-    internal static class AppConfig
-    {
-        public static int PollingInterval = 100;
-        public const int OverlayDefaultDurationMs = 1500;
-        public const float OverlayDefaultFontSize = 29f;
-        public const int OverlayDefaultHeight = 52;
-        public const int OverlayDefaultCharWidth = 30;
-        public const int OverlayDefaultPaddingWidth = 24;
-        public const int OverlayDefaultYOffset = 40;
-        public const int TrayIconSize = 32;
-        public const float TrayLowercaseFontSize = 31F;
-        public const float TrayUppercaseFontSize = 32F;
-        public static int MaxKanjiConversionLength = 20;
-
-#if ENABLE_CAPS_Japanese1
-        public static bool ShowCapsJapanese1 = true;
-#else
-        public static bool ShowCapsJapanese1 = false;
-#endif
-
-#if ENABLE_CAPS_Japanese2
-        public static bool ShowCapsJapanese2 = true;
-#else
-        public static bool ShowCapsJapanese2 = false;
-#endif
-
-#if ENABLE_CAPS_Japanese3
-        public static bool ShowCapsJapanese3 = true;
-#else
-        public static bool ShowCapsJapanese3 = false;
-#endif
-
-#if ENABLE_KEYBOARD_LAYOUT
-        public static bool ShowKeyboardlayoutMenu = true;
-#else
-        public static bool ShowKeyboardlayoutMenu = false;
-#endif
-
-        public static bool ShowTextOverlayMenu = true;
-        public static bool ShowCopilotMapMenu = true;
-
-        public static int DefaultCapsMode = 1;
-        public static bool DefaultShowKeyboardLayout = true;
-        public static bool DefaultShowTextOverlay = true;
-        public static bool DefaultEnableCopilotMap = false;
-        public static bool EnableCopilotMap = DefaultEnableCopilotMap;
-
-        public static bool EnableLocalConversion = true;
-        public static bool UseGoogleApi { get; set; } = true;
-
-        public static int ViterbiBeamWidth = 6;
-        public static int ViterbiMaxCandidates = 9;
-        public static int MaxCandidatesPerSubstring = 5;
-
-        public struct Theme
-        {
-            public Color TrayBgColor;
-            public Color TrayTextColor;
-            public string TrayText;
-            public string Description;
-        }
-
-        public static readonly Dictionary<ImeState.State, Theme> Themes = new()
-        {
-            [ImeState.State.EnglishLower] = new Theme { TrayBgColor = Color.Black, TrayTextColor = Color.White, TrayText = "e", Description = "영어 소문자 [e]" },
-            [ImeState.State.EnglishUpper] = new Theme { TrayBgColor = Color.Black, TrayTextColor = Color.DeepSkyBlue, TrayText = "E", Description = "영어 대문자 [E]" },
-            [ImeState.State.Hangul] = new Theme { TrayBgColor = Color.Red, TrayTextColor = Color.White, TrayText = "K", Description = "한글 (Caps Off) [K]" },
-            [ImeState.State.JapaneseIME] = new Theme { TrayBgColor = Color.Black, TrayTextColor = Color.Lime, TrayText = "j", Description = "Japanese IME [j]" },
-            [ImeState.State.JapaneseHangul1] = new Theme { TrayBgColor = Color.Black, TrayTextColor = Color.Lime, TrayText = "J", Description = "일본어1_조합형 [J]" },
-            [ImeState.State.JapaneseHangul2] = new Theme { TrayBgColor = Color.Black, TrayTextColor = Color.Lime, TrayText = "J", Description = "일본어2_조합형 [J]" },
-            [ImeState.State.JapaneseHangul3] = new Theme { TrayBgColor = Color.Black, TrayTextColor = Color.Lime, TrayText = "J", Description = "일본어3_3Layer [J]" }
-        };
-    }
-    #endregion
-
-    #region [ 문자열 리소스 (UiText) ]
-    internal static class UiText
-    {
-        public const string AppName = "IMEJapanese";
-        public const string AlreadyRunningMessage = "이미 실행 중입니다.";
-        public const string FatalErrorPrefix = "치명적 오류:\n";
-        public const string StatusChecking = "현재 상태: 확인 중...";
-        public static string HangulCapsMode => MainForm.Instance?.GetCapsModeOverlayText() ?? "일본어 입력모드";
-        public const string ExitMenu = "종료(Exit)";
-        public const string GithubUrl = "https://github.com/stonkim93/IMEJapanese";
-
-        public static string TrayTooltip(string description) => $"{AppName}: {description}";
-        public static string StatusLabel(string description) => $"현재 상태: {description}";
-    }
-    #endregion
 
     #region [ 진입점 (Main) ]
     internal static class Program
@@ -129,18 +38,18 @@ namespace IMEJapanese
 
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
 
+            // [최적화 1] 불필요하게 중첩된 try-catch 블록 제거 및 정리
             try
             {
-                try
-                {
-                    string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-                    Directory.CreateDirectory(logDir);
-                    string logPath = Path.Combine(logDir, "imejapanese.log");
-                    var listener = new TextWriterTraceListener(logPath);
-                    Trace.Listeners.Add(listener);
-                    Trace.AutoFlush = true;
-                }
-                catch { }
+                string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "IMEJapanese.log");
+                var listener = new TextWriterTraceListener(logPath);
+                Trace.Listeners.Add(listener);
+                Trace.AutoFlush = true;
+            }
+            catch { }
+
+            try
+            {
                 Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
@@ -155,307 +64,22 @@ namespace IMEJapanese
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Failed to start MozcDictionary loader task: {ex.Message}");
+                    if (AppConfig.LogLevel >= 1) System.Diagnostics.Debug.WriteLine($"Failed to start MozcDictionary loader task: {ex.Message}");
                 }
 
                 Application.Run(new MainForm());
             }
             catch (Exception ex)
             {
+                if (AppConfig.LogLevel >= 1) Trace.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] Fatal Error: {ex.Message}\n{ex.StackTrace}");
                 MessageBox.Show($"{UiText.FatalErrorPrefix}{ex.Message}", UiText.AppName, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
     #endregion
 
-    #region [ 자판 배열창 폼 ]
-    public class KeyboardLayoutForm : Form
-    {
-        private readonly PictureBox _pbLayoutImage;
-        public event EventHandler? OnLayoutDoubleClicked;
-        public event EventHandler? OnClosedByUser;
-        private string _currentImageName = "";
-        private Size _currentImageSize = new Size(600, 200);
 
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                CreateParams cp = base.CreateParams;
-                cp.Style |= 0x00020000;
-                cp.Style |= 0x00080000;
-                cp.ExStyle |= 0x00040000;
-                cp.ExStyle |= 0x08000000;
-                return cp;
-            }
-        }
 
-        protected override bool ShowWithoutActivation => true;
-
-        public KeyboardLayoutForm()
-        {
-            this.FormBorderStyle = FormBorderStyle.FixedSingle;
-            this.MaximizeBox = false;
-            this.MinimizeBox = true;
-            this.ShowInTaskbar = true;
-            this.TopMost = true;
-            this.Text = "IMEJapanese 자판 배열창";
-
-            int screenWidth = Screen.PrimaryScreen?.WorkingArea.Width ?? 800;
-            this.StartPosition = FormStartPosition.Manual;
-            this.Location = new Point(Math.Max(0, (screenWidth - this.Width) / 2), 50);
-
-            try
-            {
-                var assembly = typeof(Program).Assembly;
-                using Stream? stream = assembly.GetManifestResourceStream("IMEJapanese.images.IMEJapanese.ico");
-                if (stream != null) this.Icon = new Icon(stream);
-            }
-            catch { }
-
-            _pbLayoutImage = new PictureBox
-            {
-                Dock = DockStyle.Fill,
-                SizeMode = PictureBoxSizeMode.Zoom,
-                BackColor = Color.White
-            };
-
-            _pbLayoutImage.DoubleClick += (s, e) => OnLayoutDoubleClicked?.Invoke(this, EventArgs.Empty);
-            this.Controls.Add(_pbLayoutImage);
-        }
-
-        protected override void OnResize(EventArgs e)
-        {
-            base.OnResize(e);
-            if (this.WindowState == FormWindowState.Normal)
-            {
-                if (this.ClientSize != _currentImageSize && _currentImageSize.Width > 0 && _currentImageSize.Height > 0)
-                {
-                    this.ClientSize = _currentImageSize;
-                }
-            }
-        }
-
-        protected override void OnFormClosing(FormClosingEventArgs e)
-        {
-            if (e.CloseReason == CloseReason.UserClosing)
-            {
-                e.Cancel = true;
-                this.Hide();
-                OnClosedByUser?.Invoke(this, EventArgs.Empty);
-            }
-            base.OnFormClosing(e);
-        }
-
-        public void UpdateImage(string imageName)
-        {
-            if (_currentImageName == imageName) return;
-            _currentImageName = imageName;
-            this.Text = imageName;
-
-            try
-            {
-                var assembly = typeof(Program).Assembly;
-                string resourceName = $"IMEJapanese.images.{imageName}";
-                using Stream? stream = assembly.GetManifestResourceStream(resourceName);
-
-                Image? oldImg = _pbLayoutImage.Image;
-                if (stream != null)
-                {
-                    Image newImg = Image.FromStream(stream);
-                    _pbLayoutImage.Image = newImg;
-                    _currentImageSize = newImg.Size;
-                    if (this.WindowState == FormWindowState.Normal) this.ClientSize = _currentImageSize;
-                }
-                else _pbLayoutImage.Image = null;
-
-                oldImg?.Dispose();
-            }
-            catch
-            {
-                Image? oldImg = _pbLayoutImage.Image;
-                _pbLayoutImage.Image = null;
-                oldImg?.Dispose();
-            }
-        }
-    }
-    #endregion
-
-    #region [ 오버레이 표시 폼 (TextOverlayForm) ]
-    public class TextOverlayForm : Form
-    {
-        private readonly System.Windows.Forms.Timer _hideTimer;
-        private string _displayText = "";
-        private float _displayFontSize = 22f;
-
-        protected override CreateParams CreateParams
-        {
-            get
-            {
-                CreateParams cp = base.CreateParams;
-                cp.ExStyle |= 0x08000000;
-                cp.ExStyle |= 0x00000080;
-                cp.ExStyle |= 0x00000008;
-                return cp;
-            }
-        }
-        protected override bool ShowWithoutActivation => true;
-
-        public TextOverlayForm()
-        {
-            this.FormBorderStyle = FormBorderStyle.None;
-            this.StartPosition = FormStartPosition.Manual;
-            this.BackColor = Color.Black;
-            this.ForeColor = Color.White;
-            this.TopMost = true;
-            this.ShowInTaskbar = false;
-
-            _hideTimer = new System.Windows.Forms.Timer { Interval = AppConfig.OverlayDefaultDurationMs };
-            _hideTimer.Tick += (s, e) => this.Hide();
-
-            this.Paint += RenderOverlayText;
-        }
-
-        public void ShowOverlay(string text, bool useTimer, float fontSize, int width, int height, int x, int y)
-        {
-            _displayText = text;
-            _displayFontSize = fontSize;
-
-            this.Size = new Size(width, height);
-            this.Location = new Point(x, y);
-
-            if (useTimer) { _hideTimer.Stop(); _hideTimer.Start(); }
-            else _hideTimer.Stop();
-
-            if (!this.Visible) this.Show();
-            this.Invalidate();
-        }
-
-        private void RenderOverlayText(object? sender, PaintEventArgs e)
-        {
-            using Font f = new Font("Malgun Gothic", _displayFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-            TextRenderer.DrawText(e.Graphics, _displayText, f, this.ClientRectangle, Color.White, Color.Black, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-        }
-
-        public void Clear()
-        {
-            _hideTimer.Stop();
-            this.Hide();
-        }
-    }
-    #endregion
-
-    #region [ 레지스트리 키맵핑 도구 (RegistryManager) ]
-    internal static class RegistryManager
-    {
-        private const string RegPath = @"SYSTEM\CurrentControlSet\Control\Keyboard Layout";
-        private const string RegValue = "Scancode Map";
-        private static readonly byte[] MappingBytes = { 0x71, 0xE0, 0x6E, 0x00 };
-
-        public static bool IsAdmin()
-        {
-            using var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
-            var principal = new System.Security.Principal.WindowsPrincipal(identity);
-            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
-        }
-
-        public static bool IsMappingApplied()
-        {
-            try
-            {
-                using var key = Registry.LocalMachine.OpenSubKey(RegPath, false);
-                if (key?.GetValue(RegValue) is byte[] data && data.Length >= 20)
-                {
-                    int count = BitConverter.ToInt32(data, 8);
-                    for (int i = 0; i < count - 1; i++)
-                    {
-                        int offset = 12 + (i * 4);
-                        if (offset + 4 <= data.Length)
-                        {
-                            if (data[offset] == MappingBytes[0] && data[offset + 1] == MappingBytes[1] &&
-                                data[offset + 2] == MappingBytes[2] && data[offset + 3] == MappingBytes[3])
-                                return true;
-                        }
-                    }
-                }
-                return false;
-            }
-            catch { return false; }
-        }
-
-        public static bool ToggleMapping(bool apply)
-        {
-            if (!IsAdmin())
-            {
-                MessageBox.Show("레지스트리 수정을 위해 앱을 '관리자 권한'으로 실행해주세요.", "권한 필요", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return false;
-            }
-
-            try
-            {
-                using var key = Registry.LocalMachine.OpenSubKey(RegPath, true);
-                if (key == null) return false;
-                byte[]? currentData = key.GetValue(RegValue) as byte[];
-
-                if (apply)
-                {
-                    if (IsMappingApplied()) return true;
-
-                    byte[] newData;
-                    if (currentData == null || currentData.Length < 20)
-                    {
-                        newData = new byte[20];
-                        Array.Clear(newData, 0, 8);
-                        BitConverter.GetBytes(2).CopyTo(newData, 8);
-                        MappingBytes.CopyTo(newData, 12);
-                    }
-                    else
-                    {
-                        int oldCount = BitConverter.ToInt32(currentData, 8);
-                        newData = new byte[currentData.Length + 4];
-                        Array.Copy(currentData, 0, newData, 0, 8);
-                        BitConverter.GetBytes(oldCount + 1).CopyTo(newData, 8);
-                        Array.Copy(currentData, 12, newData, 12, currentData.Length - 16);
-                        MappingBytes.CopyTo(newData, currentData.Length - 4);
-                    }
-                    key.SetValue(RegValue, newData, RegistryValueKind.Binary);
-                }
-                else
-                {
-                    if (!IsMappingApplied() || currentData == null) return true;
-
-                    int oldCount = BitConverter.ToInt32(currentData, 8);
-                    if (oldCount <= 2) key.DeleteValue(RegValue, false);
-                    else
-                    {
-                        byte[] newData = new byte[currentData.Length - 4];
-                        Array.Copy(currentData, 0, newData, 0, 8);
-                        BitConverter.GetBytes(oldCount - 1).CopyTo(newData, 8);
-
-                        int destOffset = 12;
-                        for (int i = 0; i < oldCount - 1; i++)
-                        {
-                            int srcOffset = 12 + (i * 4);
-                            if (!(currentData[srcOffset] == MappingBytes[0] && currentData[srcOffset + 1] == MappingBytes[1] &&
-                                  currentData[srcOffset + 2] == MappingBytes[2] && currentData[srcOffset + 3] == MappingBytes[3]))
-                            {
-                                Array.Copy(currentData, srcOffset, newData, destOffset, 4);
-                                destOffset += 4;
-                            }
-                        }
-                        key.SetValue(RegValue, newData, RegistryValueKind.Binary);
-                    }
-                }
-                return true;
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show($"레지스트리 수정 중 오류가 발생했습니다.\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return false;
-            }
-        }
-    }
-    #endregion
 
     #region [ 메인 폼 (MainForm) 및 트레이 제어 ]
     internal class MainForm : Form
@@ -556,6 +180,12 @@ namespace IMEJapanese
             }
         }
 
+        private static readonly CapsModeStateMapping[] _capsModeMaps = {
+            new(CapsMode.Japanese1, ImeState.State.JapaneseHangul1, KeyProcessorFactory.Japanese1),
+            new(CapsMode.Japanese2, ImeState.State.JapaneseHangul2, KeyProcessorFactory.Japanese2),
+            new(CapsMode.Japanese3, ImeState.State.JapaneseHangul3, KeyProcessorFactory.Japanese3)
+        };
+        
         public MainForm()
         {
             Instance = this;
@@ -573,7 +203,10 @@ namespace IMEJapanese
             _sysTrayIcon = new NotifyIcon { Text = UiText.AppName, ContextMenuStrip = _trayContextMenu, Visible = true };
             _sysTrayIcon.MouseClick += (s, e) =>
             {
-                if (e.Button == MouseButtons.Left) { NativeMethods.SetForegroundWindow(this.Handle); _trayContextMenu.Show(Cursor.Position); }
+                if (e.Button == MouseButtons.Left)
+                {
+                    _trayContextMenu.Show(Cursor.Position);
+                }
             };
 
             GlobalInputHook.Install();
@@ -602,11 +235,18 @@ namespace IMEJapanese
 
         private void OnMozcDictionaryLoaded()
         {
-            try { if (this.IsHandleCreated) this.BeginInvoke(new Action(UpdateDictionaryStatusUi)); else UpdateDictionaryStatusUi(); } catch { }
+            UpdateDictionaryStatusUi();
         }
 
+        // [최적화 2] UI 스레드 접근 패턴을 InvokeRequired를 사용해 일관성 있고 깔끔하게 수정
         private void UpdateDictionaryStatusUi()
         {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(UpdateDictionaryStatusUi));
+                return;
+            }
+
             try
             {
                 _menuItemStatus.Text = "사전 로드 완료";
@@ -615,7 +255,52 @@ namespace IMEJapanese
             catch { }
         }
 
-        internal void ShowKanjiCandidateAsync(List<MozcDictionary.KanjiEntry> candidates, string originalText, bool isReplacingSelection = false)
+        private static Rectangle ResolveCaretRectangle()
+        {
+            IntPtr hFore = NativeMethods.GetForegroundWindow();
+            uint tid = NativeMethods.GetWindowThreadProcessId(hFore, out _);
+            NativeMethods.GUITHREADINFO gti = new() { cbSize = Marshal.SizeOf<NativeMethods.GUITHREADINFO>() };
+
+            if (NativeMethods.GetGUIThreadInfo(tid, ref gti) && gti.hwndCaret != IntPtr.Zero)
+            {
+                NativeMethods.POINT ptTopLeft = new() { X = gti.rectLeft, Y = gti.rectTop };
+                NativeMethods.ClientToScreen(gti.hwndCaret, ref ptTopLeft);
+                NativeMethods.POINT ptBottomRight = new() { X = gti.rectRight, Y = gti.rectBottom };
+                NativeMethods.ClientToScreen(gti.hwndCaret, ref ptBottomRight);
+
+                int width = Math.Max(1, ptBottomRight.X - ptTopLeft.X);
+                int height = Math.Max(1, ptBottomRight.Y - ptTopLeft.Y);
+                if (height < 5) height = 24;
+
+                return new Rectangle(ptTopLeft.X, ptTopLeft.Y, width, height);
+            }
+
+            try
+            {
+                var focusedElement = System.Windows.Automation.AutomationElement.FocusedElement;
+                if (focusedElement != null && focusedElement.TryGetCurrentPattern(System.Windows.Automation.TextPattern.Pattern, out object patternObj))
+                {
+                    var textPattern = (System.Windows.Automation.TextPattern)patternObj;
+                    var selections = textPattern.GetSelection();
+                    
+                    if (selections.Length > 0)
+                    {
+                        var rects = selections[0].GetBoundingRectangles();
+                        if (rects.Length > 0)
+                        {
+                            return new Rectangle((int)rects[0].X, (int)rects[0].Y, (int)rects[0].Width, (int)rects[0].Height);
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            if (NativeMethods.GetCursorPos(out NativeMethods.POINT mPt)) return new Rectangle(mPt.X, mPt.Y, 1, 24);
+            return new Rectangle(0, 0, 1, 24);
+        }
+
+        // [최적화 3] 중복 코드를 제거하기 위한 제네릭 코어 헬퍼 메소드 구현
+        private void ShowKanjiCandidateCore<T>(List<T> candidates, string originalText, bool isReplacingSelection, Action<Rectangle, List<T>, Action<T?>> showOverlay, Func<T, string?> getResultString)
         {
             if (candidates == null || candidates.Count == 0) return;
 
@@ -625,11 +310,13 @@ namespace IMEJapanese
                 {
                     IntPtr targetHwnd = LastValidFocusHwnd != IntPtr.Zero ? LastValidFocusHwnd : (LastValidHwnd != IntPtr.Zero ? LastValidHwnd : NativeMethods.GetForegroundWindow());
                     bool wasHangul = ImeState.CheckHangulPublic(targetHwnd);
+                    Rectangle targetRect = ResolveCaretRectangle();
 
-                    Point loc = Cursor.Position;
-                    KanjiCandidateOverlay.ShowOverlay(loc, candidates, (selected) =>
+                    showOverlay(targetRect, candidates, (selected) =>
                     {
-                        if (selected == null) 
+                        string? resultStr = selected != null ? getResultString(selected) : null;
+
+                        if (string.IsNullOrEmpty(resultStr)) 
                         {
                             if (wasHangul && targetHwnd != IntPtr.Zero)
                             {
@@ -640,7 +327,7 @@ namespace IMEJapanese
 
                         System.Threading.Tasks.Task.Run(() =>
                         {
-                            GlobalInputHook.CommitKanjiConversion(originalText, selected.Kanji, isReplacingSelection);
+                            GlobalInputHook.CommitKanjiConversion(originalText, resultStr, isReplacingSelection);
 
                             if (wasHangul && targetHwnd != IntPtr.Zero)
                             {
@@ -653,42 +340,14 @@ namespace IMEJapanese
             catch { }
         }
 
+        internal void ShowKanjiCandidateAsync(List<MozcDictionary.KanjiEntry> candidates, string originalText, bool isReplacingSelection = false)
+        {
+            ShowKanjiCandidateCore(candidates, originalText, isReplacingSelection, KanjiCandidateOverlay.ShowOverlay, item => item?.Kanji);
+        }
+
         internal void ShowKanjiCandidateAsync(List<string> replacements, string originalText, bool isReplacingSelection = false)
         {
-            if (replacements == null || replacements.Count == 0) return;
-
-            try
-            {
-                this.BeginInvoke(new Action(() =>
-                {
-                    IntPtr targetHwnd = LastValidFocusHwnd != IntPtr.Zero ? LastValidFocusHwnd : (LastValidHwnd != IntPtr.Zero ? LastValidHwnd : NativeMethods.GetForegroundWindow());
-                    bool wasHangul = ImeState.CheckHangulPublic(targetHwnd);
-
-                    Point loc = Cursor.Position;
-                    KanjiCandidateOverlay.ShowOverlay(loc, replacements, (selectedStr) =>
-                    {
-                        if (string.IsNullOrEmpty(selectedStr)) 
-                        {
-                            if (wasHangul && targetHwnd != IntPtr.Zero)
-                            {
-                                ImeState.SetHangulState(targetHwnd, true);
-                            }
-                            return;
-                        }
-
-                        System.Threading.Tasks.Task.Run(() =>
-                        {
-                            GlobalInputHook.CommitKanjiConversion(originalText, selectedStr, isReplacingSelection);
-                            
-                            if (wasHangul && targetHwnd != IntPtr.Zero)
-                            {
-                                ImeState.SetHangulState(targetHwnd, true);
-                            }
-                        });
-                    });
-                }));
-            }
-            catch { }
+            ShowKanjiCandidateCore(replacements, originalText, isReplacingSelection, KanjiCandidateOverlay.ShowOverlay, item => item);
         }
 
         private void BuildTrayMenu()
@@ -739,10 +398,8 @@ namespace IMEJapanese
 
                             _menuItemStatus.Text = "현재 상태: 사전 압축 해제 중...";
 
-                            // 압축 해제 (중복 시 덮어쓰기 옵션 사용)
                             ZipFile.ExtractToDirectory(zipPath, AppDomain.CurrentDomain.BaseDirectory, true);
 
-                            // 사용 완료된 zip 파일 삭제
                             if (File.Exists(zipPath))
                             {
                                 File.Delete(zipPath);
@@ -971,12 +628,12 @@ namespace IMEJapanese
             _lastPolledHwnd = actualHFore;
 
             IntPtr contextHwnd = ResolveContextHwnd(actualHFore);
-            bool cachedIsHangulMode = ImeState.CheckHangulPublic(contextHwnd);
+            bool cachedIsHangulMode = (isTaskbar || isTrayOrApp || isLayoutForm) ? _lastHangulSyncState : ImeState.CheckHangulPublic(contextHwnd);
             ushort contextLangId = ResolveLanguageId(contextHwnd);
 
             TrackCurrentWindow(contextHwnd, isTaskbar, isTrayOrApp, isLayoutForm);
 
-            ImeState.State currentState = ImeState.Detect(contextHwnd, _activeCapsMode == CapsMode.Japanese1, _activeCapsMode == CapsMode.Japanese2, _activeCapsMode == CapsMode.Japanese3);
+            ImeState.State currentState = ImeState.Detect(contextHwnd, _activeCapsMode == CapsMode.Japanese1, _activeCapsMode == CapsMode.Japanese2, _activeCapsMode == CapsMode.Japanese3, cachedIsHangulMode);
 
             ActiveInputModeContext activeInputMode = ResolveInputModeContext(currentState);
 
@@ -1012,22 +669,26 @@ namespace IMEJapanese
 
         private void SyncSystemHangulState(IntPtr actualHFore, bool isTaskbar, bool isTrayOrApp, bool isLayoutForm, bool isFocusChanged)
         {
-            bool isCurrentHangul = ImeState.CheckHangulPublic(actualHFore);
+            bool isOurWindow = (isTrayOrApp || isTaskbar || isLayoutForm);
+
+            bool isCurrentHangul;
+            if (isOurWindow)
+            {
+                isCurrentHangul = _lastHangulSyncState;
+            }
+            else
+            {
+                isCurrentHangul = ImeState.CheckHangulPublic(actualHFore);
+            }
 
             if (isFocusChanged)
             {
-                if (LastValidHwnd != IntPtr.Zero)
+                if (!isOurWindow)
                 {
-                    bool isValidHangul = ImeState.CheckHangulPublic(LastValidHwnd);
-                    if ((isTaskbar || isTrayOrApp || isLayoutForm) && isValidHangul != isCurrentHangul)
-                    {
-                        ImeState.SetHangulState(actualHFore, isValidHangul);
-                        isCurrentHangul = ImeState.CheckHangulPublic(actualHFore);
-                    }
+                    _lastHangulSyncState = isCurrentHangul;
                 }
-                _lastHangulSyncState = isCurrentHangul;
             }
-            else if (isCurrentHangul != _lastHangulSyncState)
+            else if (!isOurWindow && isCurrentHangul != _lastHangulSyncState)
             {
                 _lastHangulSyncState = isCurrentHangul;
 
@@ -1035,6 +696,12 @@ namespace IMEJapanese
                 SetState(LastValidHwnd);
                 SetState(_frmKeyboardLayout?.Handle ?? IntPtr.Zero);
                 SetState(this.Handle);
+
+                IntPtr kanjiOverlayHandle = KanjiCandidateOverlay.ActiveHandle;
+                if (kanjiOverlayHandle != IntPtr.Zero)
+                {
+                    SetState(kanjiOverlayHandle);
+                }
             }
         }
 
@@ -1058,13 +725,18 @@ namespace IMEJapanese
 
         private ActiveInputModeContext ResolveInputModeContext(ImeState.State state)
         {
-            CapsModeStateMapping[] maps = {
-                new(CapsMode.Japanese1, ImeState.State.JapaneseHangul1, KeyProcessorFactory.Japanese1),
-                new(CapsMode.Japanese2, ImeState.State.JapaneseHangul2, KeyProcessorFactory.Japanese2),
-                new(CapsMode.Japanese3, ImeState.State.JapaneseHangul3, KeyProcessorFactory.Japanese3)
-            };
-            foreach (var map in maps)
-                if (_activeCapsMode == map.Mode && state == map.ActiveState) return new ActiveInputModeContext(map.Mode == CapsMode.Japanese1, map.Mode == CapsMode.Japanese2, map.Mode == CapsMode.Japanese3, map.Processor);
+            foreach (var map in _capsModeMaps)
+            {
+                if (_activeCapsMode == map.Mode && state == map.ActiveState)
+                {
+                    return new ActiveInputModeContext(
+                        map.Mode == CapsMode.Japanese1, 
+                        map.Mode == CapsMode.Japanese2, 
+                        map.Mode == CapsMode.Japanese3, 
+                        map.Processor
+                    );
+                }
+            }
             return new ActiveInputModeContext(false, false, false, null);
         }
 

@@ -3,6 +3,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -53,11 +54,18 @@ namespace IMEJapanese
         public const int vk_Y = 0x59;
         public const int vk_Z = 0x5A;
 
-        public const int OemYen = 0xDC;      // (\ |) → (¥ |)
-        public const int OemColon = 0xBA;    // (; :) → (・ :)
-        public const int OemComma = 0xBC;    // (, <) → (, 、)
-        public const int OemPeriod = 0xBE;   // (. >) → (. 。)
-        public const int OemSlash = 0xBF;    // (/ ?) → (/ ー)
+        // 특수기호 및 숫자 가상키 코드 (Windows VK 기준)
+        public const int OemLeftBraket = 0xDB;  // ([ {) → (「 『) - 430
+        public const int OemRightBraket = 0xDD; // (] }) → (」 』) - 431
+        public const int OemWave = 0xC0;        // (` ~) → (々  ～)- 422
+        public const int OemDash = 0xBC;        // (, <) → (, ー)  - 420
+        public const int OemDot = 0xBE;         // (. >) → (. ・)  - 421
+        public const int OemPeriod = 0xBF;      // (/ ?) → (。?)   - 423
+        public const int OemComma = 0xBA;       // (; :) → (、:)   - 424
+        public const int OemYen = 0xDC;         // (\ |) → (円 ¥)  - 432
+        public const int OemMinus = 0xBD;       // (- _) → (- _)   - 433
+        public const int OemPlus = 0xBB;        // (= +) → (= +)   - 434
+        public const int OemQuote = 0xDE;       // (' ") → (' ")   - 440
     }
 
     #region [ 0. 유틸리티: 키보드 레이아웃 분석 (KeyboardLayoutAnalyzer) ]
@@ -410,26 +418,68 @@ namespace IMEJapanese
             );
         }
 
-        public static string? ProcessPunctuation(int vKey, bool useKatakana, Action<string> setLastOutputChar)
+        /// <summary>
+        /// 가상 키 코드(vKey)를 JapaneseCharacter.cs의 400~440번 3자리 baseCode로 매핑
+        /// </summary>
+        public static ushort? GetCodeFromVKey(int vKey)
         {
-            string? ch = vKey switch
+            return vKey switch
             {
-                VCode.OemYen => useKatakana ? "|" : "¥",
-                VCode.OemColon => useKatakana ? ":" : "・",
-                VCode.OemComma => useKatakana ? "、" : ",",
-                VCode.OemPeriod => useKatakana ? "。" : ".",
-                VCode.OemSlash => useKatakana ? "ー" : "/",
+                // 숫자키 0 ~ 9
+                0x30 => 400, // 0 / )
+                0x31 => 401, // 1 / !
+                0x32 => 402, // 2 / @
+                0x33 => 403, // 3 / #
+                0x34 => 404, // 4 / $
+                0x35 => 410, // 5 / %
+                0x36 => 411, // 6 / ^
+                0x37 => 412, // 7 / &
+                0x38 => 413, // 8 / *
+                0x39 => 414, // 9 / (
+
+                // 일본어 특수기호 및 기호 키
+                VCode.OemDash => 420,        // , <  -> Hiragana: ',',  Katakana: 'ー'
+                VCode.OemDot => 421,         // . >  -> Hiragana: '.',  Katakana: '・'
+                VCode.OemWave => 422,        // ` ~  -> Hiragana: '々', Katakana: '～'
+                VCode.OemPeriod => 423,      // / ?  -> Hiragana: '。', Katakana: '?'
+                VCode.OemComma => 424,       // ; :  -> Hiragana: '、', Katakana: ':'
+
+                VCode.OemLeftBraket => 430,  // [ {  -> Hiragana: '「', Katakana: '『'
+                VCode.OemRightBraket => 431, // ] }  -> Hiragana: '」', Katakana: '』'
+                VCode.OemYen => 432,         // \ |  -> Hiragana: '円', Katakana: '¥'
+                VCode.OemMinus => 433,       // - _  -> Hiragana: '-',  Katakana: '_'
+                VCode.OemPlus => 434,        // = +  -> Hiragana: '=',  Katakana: '+'
+                VCode.OemQuote => 440,       // ' "  -> Hiragana: '\'', Katakana: '\"'
+
                 _ => null
             };
-
-            if (ch != null)
-            {
-                MainForm.Instance?.ShowOverlay(ch);
-                setLastOutputChar(ch);
-            }
-            return ch;
         }
 
+        /// <summary>
+        /// 400~440(가타카나/Shift 기준 405~445)번 3자리 코드를 사용하여 기호 및 숫자를 처리
+        /// </summary>
+        public static string? ProcessPunctuation(int vKey, bool useKatakana, Action<string> setLastOutputChar)
+        {
+            ushort? code = GetCodeFromVKey(vKey);
+            if (code.HasValue)
+            {
+                // [수정됨] 수동 오프셋 (+ 5) 계산을 생략하고 500 사이즈 O(1) Dictionary 캐싱을 호출
+                // 구조체의 Katakana / Hiragana char 속성에서 직접 값을 가져옵니다.
+                if (CharacterDatabase.ContainsCode(code.Value))
+                {
+                    var jpChar = JapaneseCharacter.FromCode(code.Value);
+                    string ch = useKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
+
+                    MainForm.Instance?.ShowOverlay(ch);
+                    setLastOutputChar(ch);
+                    return ch;
+                }
+            }
+            return null;
+        }
+        /// <summary>
+        /// 400~440번 3자리 수 코드로 직접 정의되지 않은 기타 키보드 기호 및 숫자 처리 (Fallback)
+        /// </summary>
         public static string? ProcessSymbolOrNumber(int vKey, bool useKatakana, Action<string> setLastOutputChar)
         {
             if (KeyboardLayoutAnalyzer.IsSymbolOrNumber(vKey))
@@ -547,9 +597,9 @@ namespace IMEJapanese
             // { (vk_C, vk_H), ("ら" : "ラ") }, { (vk_C, vk_J), ("り" : "リ") }, { (vk_C, vk_K), ("る" : "ル") }, { (vk_C, vk_M), ("れ" : "レ") }, { (vk_C, vk_L), ("ろ" : "ロ") },
             // { (vk_V, vk_H), ("な" : "ナ") }, { (vk_V, vk_J), ("に" : "ニ") }, { (vk_V, vk_K), ("ぬ" : "ヌ") }, { (vk_V, vk_M), ("ね" : "ネ") }, { (vk_V, vk_L), ("の" : "ノ") }
 
-            { VCode.vk_Q, 401 }, { VCode.vk_W, 201 }, { VCode.vk_E, 101 }, { VCode.vk_R, 301 },
-            { VCode.vk_A, 400 }, { VCode.vk_S, 200 }, { VCode.vk_D, 100 }, { VCode.vk_F, 300 },
-            { VCode.vk_Z, 402 }, { VCode.vk_X, 600 }, { VCode.vk_C, 700 }, { VCode.vk_V, 500 }
+            { VCode.vk_Q, 140 }, { VCode.vk_W, 120 }, { VCode.vk_E, 110 }, { VCode.vk_R, 130 },
+            { VCode.vk_A, 040 }, { VCode.vk_S, 020 }, { VCode.vk_D, 010 }, { VCode.vk_F, 030 },
+            { VCode.vk_Z, 240 }, { VCode.vk_X, 060 }, { VCode.vk_C, 070 }, { VCode.vk_V, 050 }
         };
 
         private static readonly Dictionary<int, ushort> _vowelOffset = new()
@@ -558,7 +608,7 @@ namespace IMEJapanese
             // { vk_Y, ("わ" : "ワ") }, { vk_U, ("を" : "ヲ") }, { vk_I, ("や" : "ヤ") }, { vk_O, ("よ" : "ヨ") }, { vk_P, ("ゆ" : "ユ") },
             // { vk_H, ("あ" : "ア") }, { vk_J, ("い" : "イ") }, { vk_K, ("う" : "ウ") }, { vk_L, ("お" : "オ") }, { vk_M, ("え" : "エ") }
 
-            { VCode.vk_H, 00 }, { VCode.vk_J, 10 }, { VCode.vk_K, 20 }, { VCode.vk_M, 30 }, { VCode.vk_L, 40 }
+            { VCode.vk_H, 0 }, { VCode.vk_J, 1 }, { VCode.vk_K, 2 }, { VCode.vk_M, 3 }, { VCode.vk_L, 4 }
         };
 
         private static readonly Dictionary<int, ushort> _soloMap = new()
@@ -567,9 +617,9 @@ namespace IMEJapanese
             // { vk_A, ("は" : "ハ") }, { vk_S, ("さ" : "サ") }, { vk_D, ("か" : "カ") }, { vk_F, ("た" : "タ") }, 
             // { vk_Z, ("ぱ" : "パ") }, { vk_X, ("ま" : "マ") }, { vk_C, ("ら" : "ラ") }, { vk_V, ("な" : "ナ") }
 
-            { VCode.vk_T, 323 }, { VCode.vk_G, 920 },
-            { VCode.vk_Y, 900 }, { VCode.vk_U, 940 }, { VCode.vk_I, 800 }, { VCode.vk_O, 840 }, { VCode.vk_P, 820 },
-            { VCode.vk_H, 000 }, { VCode.vk_J, 010 }, { VCode.vk_K, 020 }, { VCode.vk_L, 040 }, { VCode.vk_M, 030 }
+            { VCode.vk_T, 332 }, { VCode.vk_G, 092 },
+            { VCode.vk_Y, 090 }, { VCode.vk_U, 094 }, { VCode.vk_I, 080 }, { VCode.vk_O, 084 }, { VCode.vk_P, 082 },
+            { VCode.vk_H, 000 }, { VCode.vk_J, 001 }, { VCode.vk_K, 002 }, { VCode.vk_L, 004 }, { VCode.vk_M, 003 }
         };
 
         // Layer2 모음 고정 매핑
@@ -579,9 +629,9 @@ namespace IMEJapanese
             // { vk_A, ("は" : "ハ") }, { vk_S, ("し" : "シ") }, { vk_D, ("か" : "カ") }, { vk_F, ("て" : "テ") }, 
             // { vk_Z, ("ぱ" : "パ") }, { vk_X, ("も" : "モ") }, { vk_C, ("る" : "ル") }, { vk_V, ("の" : "ノ") }
 
-            { 401, 401 }, { 201, 211 }, { 101, 101 }, { 301, 331 },
-            { 400, 400 }, { 200, 210 }, { 100, 100 }, { 300, 330 },
-            { 402, 402 }, { 600, 640 }, { 700, 720 }, { 500, 540 }
+            { 140, 140 }, { 120, 121 }, { 110, 110 }, { 130, 133 },
+            { 040, 040 }, { 020, 021 }, { 010, 010 }, { 030, 033 },
+            { 240, 240 }, { 060, 064 }, { 070, 072 }, { 050, 054 }
         };
 
         private static bool _isKatakana = false;
@@ -643,40 +693,48 @@ namespace IMEJapanese
 
         public static bool ProcessKeyDownShared(int vKey, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
         {
+            // 방향키 등 일부 제어키는 직접 처리 안 함
             if (vKey is >= 0x21 and <= 0x28) { if (!isShift) SetLastOutputChar(""); return false; }
 
-            // 리팩토링된 B키(HK) / N키(YN) 처리 부분
-            if (vKey == VCode.vk_B && capsOn && isHangulMode) 
-            { 
-                if (_waitingVowel) ApplyPendingTransformation(JapaneseCharacterProcessor.ProcessHK); else HandleHiraganaKatakanaTransformation(); 
-                return true; 
+            // B키(HK 히라가나↔가타카나) / N키(YN 요음 변환) 처리
+            if (vKey == VCode.vk_B && capsOn && isHangulMode)
+            {
+                if (_waitingVowel) ApplyPendingTransformation(JapaneseCharacterProcessor.ProcessHK);
+                else HandleHiraganaKatakanaTransformation();
+                return true;
             }
-            if (vKey == VCode.vk_N && capsOn && isHangulMode) 
-            { 
-                if (_waitingVowel) ApplyPendingTransformation(JapaneseCharacterProcessor.ProcessYN); else HandleYoonTransformation(); 
-                return true; 
+            if (vKey == VCode.vk_N && capsOn && isHangulMode)
+            {
+                if (_waitingVowel) ApplyPendingTransformation(JapaneseCharacterProcessor.ProcessYN);
+                else HandleYoonTransformation();
+                return true;
             }
 
             if (!capsOn || !isHangulMode) return false;
             if (TextSelectionUtils.IsConverting) return true;
 
-            string? punct = JapaneseTransformationHelper.ProcessPunctuation(vKey, IsKatakana, SetLastOutputChar);
-            if (punct != null)
+            // ESC / Delete / Backspace : 조합모드면 대기중인 자음을 취소, 아니면 그냥 흘려보냄
+            if (vKey is VCode.Escape or 0x2E or VCode.Backspace)
             {
-                GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(punct); GlobalInputHook.IsSending = false;
-                GlobalInputHook.AppendComposition(punct);
-                return true;
-            }
-
-            string? sym = JapaneseTransformationHelper.ProcessSymbolOrNumber(vKey, IsKatakana, SetLastOutputChar);
-            if (sym != null)
-            {
-                GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(sym); GlobalInputHook.IsSending = false;
-                GlobalInputHook.AppendComposition(sym);
-                return true;
+                if (_waitingVowel)
+                {
+                    // 조합 대기 취소 → 대기 중인 자음 글자 제거 없이 상태만 초기화
+                    if (AppConfig.LogLevel >= 2) Trace.WriteLine($"[Japanese1Map] 조합 취소: pendingChar='{_pendingChar}'");
+                    _waitingVowel = false;
+                    _pendingConsonant = 0;
+                    _pendingChar = "";
+                    _ynToggleCount = 0;
+                    OverlayHelper.ClearOverlay();
+                    // 실제 키 입력(백스페이스 등)은 OS로 흘려보냄
+                    return false;
+                }
+                // 조합 대기 중이 아닐 때는 그냥 통과
+                return false;
             }
 
             string? keyResult = ProcessKey(vKey, isShift);
+            if (AppConfig.LogLevel >= 2) Trace.WriteLine($"[Japanese1Map] vKey={vKey} isShift={isShift} waitingVowel={_waitingVowel} → keyResult='{keyResult}'");
+
             if (keyResult == null)
             {
                 SetLastOutputChar("");
@@ -686,96 +744,116 @@ namespace IMEJapanese
 
             if (keyResult.Length > 0)
             {
-                GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(keyResult); GlobalInputHook.IsSending = false;
+                GlobalInputHook.IsSending = true;
+                NativeMethods.SendUnicodeString(keyResult);
+                GlobalInputHook.IsSending = false;
                 GlobalInputHook.AppendComposition(keyResult);
             }
             return true;
         }
-    
+
+        /// <summary>
+        /// 2단계 조합 처리:
+        /// 1단계) 대표자음 키 → 조합 대기 상태로 진입, 오버레이 표시
+        /// 2단계) 모음 → 확정 출력 / ESC·Del·BS → 자음 취소(호출 전 처리됨) / 그 외 → 대기 자음 확정 후 새 입력 처리
+        /// </summary>
         public static string? ProcessKey(int vKey, bool isShift)
         {
             bool useKatakana = isShift ^ _isKatakana;
-            string flushChar = ""; // 1) 미확정 문자 보존을 위한 임시 변수
 
-            // 1) & 2) 미확정 문자 보존 및 상태 초기화
-            if (_waitingVowel && !_vowelOffset.ContainsKey(vKey))
+            // ─────────────────────────────────────────────────
+            // [조합 대기 중] 2번째 키 입력 처리
+            // ─────────────────────────────────────────────────
+            if (_waitingVowel)
             {
-                flushChar = _pendingChar;
-                
-                // 대기 상태 완전히 초기화하여 다음 입력을 새 입력으로 처리할 수 있도록 정리
-                _waitingVowel = false;
-                _pendingConsonant = 0;
-                _pendingChar = "";
-                _ynToggleCount = 0;
-            }
+                // 2-A) 모음 키 → 조합 확정
+                if (_vowelOffset.TryGetValue(vKey, out ushort vOffset))
+                {
+                    ushort code = (ushort)(_pendingConsonant + vOffset);
+                    string result;
 
-            string? newResult = null; // 2번째 키에 대한 새로운 결괏값
-
-            // 기존 기호 및 숫자 처리 로직
-            string? punct = JapaneseTransformationHelper.ProcessPunctuation(vKey, useKatakana, SetLastOutputChar);
-            if (punct != null)
-            {
-                newResult = punct;
-            }
-            else
-            {
-                string? sym = JapaneseTransformationHelper.ProcessSymbolOrNumber(vKey, useKatakana, SetLastOutputChar);
-                if (sym != null)
-                {
-                    newResult = sym;
-                }
-                else if (vKey == VCode.vk_B || vKey == VCode.vk_N)
-                {
-                    newResult = null;
-                }
-                else if (_waitingVowel) // 위에서 모음이 아닌 경우는 걸러졌으므로, 여기는 반드시 모음 입력임
-                {
-                    if (_vowelOffset.TryGetValue(vKey, out ushort vOffset))
+                    if (CharacterDatabase.ContainsCode(code))
                     {
-                        ushort code = (ushort)(_pendingConsonant + vOffset);
                         var jpChar = JapaneseCharacter.FromCode(code);
-                        string result = _isKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
+                        result = _isKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
                         for (int i = 0; i < _ynToggleCount; i++) result = JapaneseCharacterProcessor.ProcessYN(result);
-
-                        string currentPending = _pendingChar;
-                        var vowChar = JapaneseCharacter.FromCode(vOffset);
-                        string previewVow = _isKatakana ? vowChar.Katakana.ToString() : vowChar.Hiragana.ToString();
-                        
-                        MainForm.Instance?.ShowOverlay($"{currentPending}+{previewVow}={result}");
-
-                        _waitingVowel = false; _pendingConsonant = 0; _pendingChar = ""; _ynToggleCount = 0; _lastOutputChar = result; 
-                        newResult = result;
+                        MainForm.Instance?.ShowOverlay($"{_pendingChar}+{GetVowelPreview(vOffset)}={result}");
                     }
+                    else
+                    {
+                        // 조합 불가 → 자음 그대로 + 단독 모음
+                        string vowelStr = GetVowelPreview(vOffset);
+                        result = _pendingChar + vowelStr;
+                        if (AppConfig.LogLevel >= 2) Trace.WriteLine($"[Japanese1Map] 조합 불가: code={code}, result='{result}'");
+                    }
+
+                    _waitingVowel = false; _pendingConsonant = 0; _pendingChar = ""; _ynToggleCount = 0;
+                    _lastOutputChar = result;
+                    return result;
                 }
-                else if (_consonantBase.TryGetValue(vKey, out ushort cBase))
-                {
-                    _waitingVowel = true; _pendingConsonant = cBase; _isKatakana = useKatakana; _ynToggleCount = 0; _pendingChar = GetPreview(cBase);
-                    
-                    MainForm.Instance?.ShowOverlay(_pendingChar, 0);
-                    newResult = "";
-                }
-                else if (_soloMap.TryGetValue(vKey, out ushort soloCode))
-                {
-                    var jpChar = JapaneseCharacter.FromCode(soloCode);
-                    string ch = useKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
-                    MainForm.Instance?.ShowOverlay(ch); 
-                    _lastOutputChar = ch; 
-                    newResult = ch;
-                }
-                else
-                {
-                    _lastOutputChar = "";
-                }
+
+                // 2-B) 그 외 키 → 대기 중인 자음을 확정 출력, 새 키를 재귀 처리
+                string flush = _pendingChar;
+                _waitingVowel = false; _pendingConsonant = 0; _pendingChar = ""; _ynToggleCount = 0;
+                if (AppConfig.LogLevel >= 2) Trace.WriteLine($"[Japanese1Map] 자음 확정 후 새 입력 처리: flush='{flush}'");
+
+                // 새 키 처리 (재귀, 이미 대기가 없으므로 1단계로 진입)
+                string? next = ProcessKey(vKey, isShift);
+                // flush + 새 결과를 합쳐서 반환
+                if (!string.IsNullOrEmpty(flush) || next != null)
+                    return flush + (next ?? "");
+                return flush.Length > 0 ? flush : null;
             }
 
-            // 3) 결합 반환
-            // 보존된 문자(flushChar)가 있거나, 새롭게 처리된 결과(newResult)가 있다면 결합하여 반환
-            if (!string.IsNullOrEmpty(flushChar) || newResult != null)
+            // ─────────────────────────────────────────────────
+            // [조합 대기 없음] 1번째 키 입력 처리
+            // ─────────────────────────────────────────────────
+
+            // 기호/구두점 처리
+            string? punct = JapaneseTransformationHelper.ProcessPunctuation(vKey, useKatakana, SetLastOutputChar);
+            if (punct != null) return punct;
+
+            string? sym = JapaneseTransformationHelper.ProcessSymbolOrNumber(vKey, useKatakana, SetLastOutputChar);
+            if (sym != null) return sym;
+
+            // B, N 은 상위에서 처리됨
+            if (vKey == VCode.vk_B || vKey == VCode.vk_N) return null;
+
+            // 대표자음 키 → 조합 대기
+            if (_consonantBase.TryGetValue(vKey, out ushort cBase))
             {
-                return flushChar + (newResult ?? "");
+                _waitingVowel = true;
+                _pendingConsonant = cBase;
+                _isKatakana = useKatakana;
+                _ynToggleCount = 0;
+                _pendingChar = GetPreview(cBase);
+                MainForm.Instance?.ShowOverlay(_pendingChar, 0);
+                if (AppConfig.LogLevel >= 2) Trace.WriteLine($"[Japanese1Map] 자음 입력: vKey={vKey} cBase={cBase} pendingChar='{_pendingChar}'");
+                return ""; // 아직 출력 없음 (대기)
             }
 
+            // 단독 문자 키(あ행 등 자음 없는 문자)
+            if (_soloMap.TryGetValue(vKey, out ushort soloCode))
+            {
+                var jpChar = JapaneseCharacter.FromCode(soloCode);
+                string ch = useKatakana ? jpChar.Katakana.ToString() : jpChar.Hiragana.ToString();
+                MainForm.Instance?.ShowOverlay(ch);
+                _lastOutputChar = ch;
+                return ch;
+            }
+
+            _lastOutputChar = "";
             return null;
+        }
+
+        private static string GetVowelPreview(ushort vOffset)
+        {
+            if (CharacterDatabase.ContainsCode(vOffset))
+            {
+                var vowChar = JapaneseCharacter.FromCode(vOffset);
+                return _isKatakana ? vowChar.Katakana.ToString() : vowChar.Hiragana.ToString();
+            }
+            return "";
         }
 
         private static void ApplyPendingTransformation(Func<string, string> transformFunc)
@@ -813,12 +891,12 @@ namespace IMEJapanese
             // { vk_H, ("ン" : "ん") }, { vk_J, ("ア" : "あ") }, { vk_K, ("イ" : "い") }, { vk_L, ("ウ" : "う") },
             // { vk_N, ("オ" : "お") }, { vk_M, ("エ" : "え") }
 
-            { VCode.vk_Q, 730 }, { VCode.vk_W, 740 }, { VCode.vk_E, 720 }, { VCode.vk_R, 710 }, { VCode.vk_T, 700 }, 
-            { VCode.vk_A, 530 }, { VCode.vk_S, 540 }, { VCode.vk_D, 520 }, { VCode.vk_F, 510 }, { VCode.vk_G, 500 },
-            { VCode.vk_Z, 630 }, { VCode.vk_X, 640 }, { VCode.vk_C, 620 }, { VCode.vk_V, 610 }, { VCode.vk_B, 600 },
-            { VCode.vk_Y, 400 }, { VCode.vk_U, 410 }, { VCode.vk_I, 420 }, { VCode.vk_O, 440 }, { VCode.vk_P, 430 }, 
-            { VCode.vk_H, 920 }, { VCode.vk_J, 000 }, { VCode.vk_K, 010 }, { VCode.vk_L, 020 }, 
-            { VCode.vk_N, 040 }, { VCode.vk_M, 030 }
+            { VCode.vk_Q, 073 }, { VCode.vk_W, 074 }, { VCode.vk_E, 072 }, { VCode.vk_R, 071 }, { VCode.vk_T, 070 }, 
+            { VCode.vk_A, 053 }, { VCode.vk_S, 054 }, { VCode.vk_D, 052 }, { VCode.vk_F, 051 }, { VCode.vk_G, 050 },
+            { VCode.vk_Z, 063 }, { VCode.vk_X, 064 }, { VCode.vk_C, 062 }, { VCode.vk_V, 061 }, { VCode.vk_B, 060 },
+            { VCode.vk_Y, 040 }, { VCode.vk_U, 041 }, { VCode.vk_I, 042 }, { VCode.vk_O, 044 }, { VCode.vk_P, 043 }, 
+            { VCode.vk_H, 092 }, { VCode.vk_J, 000 }, { VCode.vk_K, 001 }, { VCode.vk_L, 002 }, 
+            { VCode.vk_N, 004 }, { VCode.vk_M, 003 }
         };
 
         private static readonly Dictionary<int, ushort> _layer2Map = new()
@@ -830,12 +908,12 @@ namespace IMEJapanese
             // { vk_H, ( "ッ" : "っ") }, { vk_J, ( "ヤ" : "や") }, { vk_K, ( "ヨ" : "よ") }, { vk_L, ( "ユ" : "ゆ") }, 
             // { vk_N, ( "ヲ" : "を") }, { vk_M, ( "ワ" : "わ") }
 
-            { VCode.vk_Q, 130 }, { VCode.vk_W, 140 }, { VCode.vk_E, 120 }, { VCode.vk_R, 110 }, { VCode.vk_T, 100 },
-            { VCode.vk_A, 330 }, { VCode.vk_S, 340 }, { VCode.vk_D, 320 }, { VCode.vk_F, 310 }, { VCode.vk_G, 300 },
-            { VCode.vk_Z, 230 }, { VCode.vk_X, 240 }, { VCode.vk_C, 220 }, { VCode.vk_V, 210 }, { VCode.vk_B, 200 },
-            { VCode.vk_Y, 402 }, { VCode.vk_U, 412 }, { VCode.vk_I, 422 }, { VCode.vk_O, 442 }, { VCode.vk_P, 432 }, 
-            { VCode.vk_H, 323 }, { VCode.vk_J, 800 }, { VCode.vk_K, 840 }, { VCode.vk_L, 820 }, 
-            { VCode.vk_N, 940 }, { VCode.vk_M, 900 }
+            { VCode.vk_Q, 013 }, { VCode.vk_W, 014 }, { VCode.vk_E, 012 }, { VCode.vk_R, 011 }, { VCode.vk_T, 010 },
+            { VCode.vk_A, 033 }, { VCode.vk_S, 034 }, { VCode.vk_D, 032 }, { VCode.vk_F, 031 }, { VCode.vk_G, 030 },
+            { VCode.vk_Z, 023 }, { VCode.vk_X, 024 }, { VCode.vk_C, 022 }, { VCode.vk_V, 021 }, { VCode.vk_B, 020 },
+            { VCode.vk_Y, 240 }, { VCode.vk_U, 241 }, { VCode.vk_I, 242 }, { VCode.vk_O, 244 }, { VCode.vk_P, 243 }, 
+            { VCode.vk_H, 332 }, { VCode.vk_J, 080 }, { VCode.vk_K, 084 }, { VCode.vk_L, 082 }, 
+            { VCode.vk_N, 094 }, { VCode.vk_M, 090 }
         };
 
         private static readonly Dictionary<int, ushort> _layer3Map = new()
@@ -846,11 +924,11 @@ namespace IMEJapanese
             // { vk_Y, ( "バ" : "ば") }, { vk_U, ( "ビ" : "び") }, { vk_I, ( "ブ" : "ぶ") }, { vk_O, ( "ボ" : "ぼ") }, { vk_P, ( "ベ" : "べ") }, 
             // { vk_H, ( "ィ" : "ヴ") }, { vk_J, ( "ャ" : "ゃ") }, { vk_K, ( "ョ" : "ょ") }, { vk_L, ( "ュ" : "ゅ") }
 
-            { VCode.vk_Q, 131 }, { VCode.vk_W, 141 }, { VCode.vk_E, 121 }, { VCode.vk_R, 111 }, { VCode.vk_T, 101 }, 
-            { VCode.vk_A, 331 }, { VCode.vk_S, 341 }, { VCode.vk_D, 321 }, { VCode.vk_F, 311 }, { VCode.vk_G, 301 },
-            { VCode.vk_Z, 231 }, { VCode.vk_X, 241 }, { VCode.vk_C, 221 }, { VCode.vk_V, 211 }, { VCode.vk_B, 201 },
-            { VCode.vk_Y, 401 }, { VCode.vk_U, 411 }, { VCode.vk_I, 421 }, { VCode.vk_O, 441 }, { VCode.vk_P, 431 },
-            { VCode.vk_J, 803 }, { VCode.vk_K, 843 }, { VCode.vk_L, 823 } // {VCode.vk_H, ( 013 , 021 )}
+            { VCode.vk_Q, 113 }, { VCode.vk_W, 114 }, { VCode.vk_E, 112 }, { VCode.vk_R, 111 }, { VCode.vk_T, 110 }, 
+            { VCode.vk_A, 133 }, { VCode.vk_S, 134 }, { VCode.vk_D, 132 }, { VCode.vk_F, 131 }, { VCode.vk_G, 130 },
+            { VCode.vk_Z, 123 }, { VCode.vk_X, 124 }, { VCode.vk_C, 122 }, { VCode.vk_V, 121 }, { VCode.vk_B, 120 },
+            { VCode.vk_Y, 140 }, { VCode.vk_U, 141 }, { VCode.vk_I, 142 }, { VCode.vk_O, 144 }, { VCode.vk_P, 143 },
+            { VCode.vk_J, 380 }, { VCode.vk_K, 384 }, { VCode.vk_L, 382 } 
         };
 
         private static bool _isVirtualShift = false;
