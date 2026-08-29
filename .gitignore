@@ -44,3 +44,4 @@ app.publish/
 **/bin/
 **/obj/
 
+mozc_dict_connect.db
