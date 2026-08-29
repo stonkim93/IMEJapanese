@@ -215,7 +215,7 @@ namespace IMEJapanese
                 string toggled = transformFunc(lastOutputChar);
                 if (toggled != lastOutputChar)
                 {
-                    MainForm.Instance?.ShowOverlay($"{lastOutputChar[0]}→{toggled[0]}");
+                    MainForm.Instance?.ShowOverlay($"{lastOutputChar[0]}→{toggled[0]}", mode: OverlayPositionMode.CharToggle);
                     setLastOutputChar(toggled);
                     if (AppConfig.EnableCopilotMap) ForceReleaseCopilotModifiers();
                     GlobalInputHook.SendReplacement(1, toggled);
@@ -237,7 +237,7 @@ namespace IMEJapanese
                         string toggled = transformFunc(selected);
                         if (toggled != selected)
                         {
-                            MainForm.Instance?.ShowOverlay($"{selected[0]}→{toggled[0]}");
+                            MainForm.Instance?.ShowOverlay($"{selected[0]}→{toggled[0]}", mode: OverlayPositionMode.SelectionToggle);
                             setLastOutputChar("");
                             if (AppConfig.EnableCopilotMap) ForceReleaseCopilotModifiers();
                             GlobalInputHook.SendReplacement(0, toggled);
@@ -509,14 +509,14 @@ namespace IMEJapanese
                 Japanese1Map.SetLayer(1);
                 ImeState.SetHangulState(hFore, false); 
                 NativeMethods.SimulateCapsLock(); 
-                MainForm.Instance?.ShowOverlay("영어 소문자 모드"); 
+                MainForm.Instance?.ShowOverlay("영어 소문자 모드", mode: OverlayPositionMode.ModeSwitch); 
                 return true; 
             } 
             if (!isHangulMode || !capsOn) {
                 Japanese1Map.SetLayer(1);
                 ImeState.SetHangulState(hFore, true);
                 if (!capsOn) NativeMethods.SimulateCapsLock();
-                MainForm.Instance?.ShowOverlay("일본어1_조합형");
+                MainForm.Instance?.ShowOverlay("일본어1_조합형", mode: OverlayPositionMode.ModeSwitch);
                 return true;
             }
             return false;
@@ -550,14 +550,14 @@ namespace IMEJapanese
                 Japanese1Map.SetLayer(2);
                 ImeState.SetHangulState(hFore, false); 
                 NativeMethods.SimulateCapsLock(); 
-                MainForm.Instance?.ShowOverlay("영어 소문자 모드"); 
+                MainForm.Instance?.ShowOverlay("영어 소문자 모드", mode: OverlayPositionMode.ModeSwitch); 
                 return true; 
             } 
             if (!isHangulMode || !capsOn) {
                 Japanese1Map.SetLayer(2);
                 ImeState.SetHangulState(hFore, true);
                 if (!capsOn) NativeMethods.SimulateCapsLock();
-                MainForm.Instance?.ShowOverlay("일본어2_조합형");
+                MainForm.Instance?.ShowOverlay("일본어2_조합형", mode: OverlayPositionMode.ModeSwitch);
                 return true;
             }
             return false;
@@ -670,7 +670,7 @@ namespace IMEJapanese
             for (int i = 0; i < _ynToggleCount; i++) preview = JapaneseCharacterProcessor.ProcessYN(preview);
             _pendingChar = preview; 
                 
-            MainForm.Instance?.ShowOverlay(_pendingChar, 0);
+            MainForm.Instance?.ShowOverlay(_pendingChar, 0, OverlayPositionMode.CharToggle);
         }
     
         public static void TogglePendingYn()
@@ -678,14 +678,14 @@ namespace IMEJapanese
             if (!_waitingVowel) return; _ynToggleCount++;
             _pendingChar = JapaneseCharacterProcessor.ProcessYN(_pendingChar);
             
-            MainForm.Instance?.ShowOverlay(_pendingChar, 0);
+            MainForm.Instance?.ShowOverlay(_pendingChar, 0, OverlayPositionMode.CharToggle);
         }
     
         public static void HandleHiraganaKatakanaTransformation() =>
             JapaneseTransformationHelper.HandleHiraganaKatakana(_lastOutputChar, SetLastOutputChar, () => {
                 _isKatakana = !_isKatakana; 
                 _lastOutputChar = ""; 
-                MainForm.Instance?.ShowOverlay(_isKatakana ? "Katakana" : "Hiragana");
+                MainForm.Instance?.ShowOverlay(_isKatakana ? "Katakana" : "Hiragana", mode: OverlayPositionMode.ModeSwitch);
             });
     
         public static void HandleYoonTransformation() =>
@@ -859,7 +859,7 @@ namespace IMEJapanese
         private static void ApplyPendingTransformation(Func<string, string> transformFunc)
         {
             string preview = transformFunc(_pendingChar);
-            MainForm.Instance?.ShowOverlay($"{_pendingChar[0]}→{preview[0]}");
+            MainForm.Instance?.ShowOverlay($"{_pendingChar[0]}→{preview[0]}", mode: OverlayPositionMode.CharToggle);
             
             GlobalInputHook.IsSending = true; NativeMethods.SendUnicodeString(preview); GlobalInputHook.IsSending = false;
             GlobalInputHook.AppendComposition(preview);
@@ -946,7 +946,7 @@ namespace IMEJapanese
             JapaneseTransformationHelper.HandleHiraganaKatakana(_lastOutputChar, SetLastOutputChar, () => {
                 _isVirtualShift = !_isVirtualShift; 
                 _lastOutputChar = ""; 
-                MainForm.Instance?.ShowOverlay(_isVirtualShift ? "Katakana" : "Hiragana");
+                MainForm.Instance?.ShowOverlay(_isVirtualShift ? "Katakana" : "Hiragana", mode: OverlayPositionMode.ModeSwitch);
             });
 
         public static void HandleYoonTransformation() =>
@@ -955,10 +955,13 @@ namespace IMEJapanese
         public static bool ProcessKeyDownShared(int vKey, bool isShift, bool capsOn, IntPtr hFore, bool isHangulMode)
         {
             if (vKey is >= 0x21 and <= 0x28) { if (!isShift) SetLastOutputChar(""); return false; }
-            if (vKey == VCode.vk_B && capsOn && isHangulMode) { HandleHiraganaKatakanaTransformation(); return true; }
-            if (vKey == VCode.vk_N && capsOn && isHangulMode) { HandleYoonTransformation(); return true; }
             if (!capsOn || !isHangulMode) return false;
             if (TextSelectionUtils.IsConverting) return true;
+            if (CurrentLayer == 3 && capsOn && isHangulMode) 
+            {
+                if (vKey == VCode.vk_N) { HandleHiraganaKatakanaTransformation(); return true; }
+                if (vKey == VCode.vk_M) { HandleYoonTransformation(); return true; }
+            }
 
             bool useKatakana = isShift ^ _isVirtualShift;
 
@@ -978,7 +981,7 @@ namespace IMEJapanese
                 return true;
             }
 
-            if (vKey == VCode.vk_B || vKey == VCode.vk_N) return true;
+            //if (vKey == VCode.vk_M || vKey == VCode.vk_N) return true;
 
             string? ch = null;
             if (CurrentLayer == 3 && vKey == VCode.vk_H)
@@ -1032,12 +1035,12 @@ namespace IMEJapanese
                     Japanese3Map.SetLayer(1);
                     ImeState.SetHangulState(hFore, false);
                     NativeMethods.SimulateCapsLock();
-                    MainForm.Instance?.ShowOverlay("영어 소문자 모드");
+                    MainForm.Instance?.ShowOverlay("영어 소문자 모드", mode: OverlayPositionMode.ModeSwitch);
                 }
                 else
                 {
                     Japanese3Map.SetLayer(newLayer);
-                    MainForm.Instance?.ShowOverlay($"일본어3_Layer{newLayer}");
+                    MainForm.Instance?.ShowOverlay($"일본어3_Layer{newLayer}", mode: OverlayPositionMode.ModeSwitch);
                 }
                 return true;
             }
@@ -1046,7 +1049,7 @@ namespace IMEJapanese
                 Japanese3Map.SetLayer(1);
                 ImeState.SetHangulState(hFore, true);
                 if (!capsOn) NativeMethods.SimulateCapsLock();
-                MainForm.Instance?.ShowOverlay("일본어3_Layer1");
+                MainForm.Instance?.ShowOverlay("일본어3_Layer1", mode: OverlayPositionMode.ModeSwitch);
                 return true;
             }
             return false;

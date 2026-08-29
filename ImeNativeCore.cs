@@ -457,7 +457,7 @@ namespace IMEJapanese
                 {
                     ImeState.SetHangulState(hFore, true);
                     if (!capsOn) NativeMethods.SimulateCapsLock();
-                    MainForm.Instance?.ShowOverlay(UiText.HangulCapsMode);
+                    MainForm.Instance?.ShowOverlay(UiText.HangulCapsMode, mode: OverlayPositionMode.ModeSwitch);
                     return (IntPtr)1;
                 }
 

@@ -19,6 +19,13 @@ using Microsoft.Win32;
 
 namespace IMEJapanese
 {
+    public enum OverlayPositionMode
+    {
+        CharInput,
+        CharToggle,
+        SelectionToggle,
+        ModeSwitch
+    }
 
     #region [ 진입점 (Main) ]
     internal static class Program
@@ -740,7 +747,7 @@ namespace IMEJapanese
             return new ActiveInputModeContext(false, false, false, null);
         }
 
-        public void ShowOverlay(string text, int durationMs = AppConfig.OverlayDefaultDurationMs)
+        public void ShowOverlay(string text, int durationMs = AppConfig.OverlayDefaultDurationMs, OverlayPositionMode mode = OverlayPositionMode.CharInput)
         {
             if (!_isTextOverlayEnabled) return;
 
@@ -750,35 +757,54 @@ namespace IMEJapanese
             int scaledPadWidth = (int)Math.Round(AppConfig.OverlayDefaultPaddingWidth * _currentDpiScale);
             int scaledYOffset = (int)Math.Round(AppConfig.OverlayDefaultYOffset * _currentDpiScale);
 
-            if (this.InvokeRequired) this.BeginInvoke(new Action(() => ExecuteShowOverlay(text, durationMs > 0, scaledFontSize, scaledHeight, scaledCharWidth, scaledPadWidth, scaledYOffset)));
-            else ExecuteShowOverlay(text, durationMs > 0, scaledFontSize, scaledHeight, scaledCharWidth, scaledPadWidth, scaledYOffset);
+            if (this.InvokeRequired) this.BeginInvoke(new Action(() => ExecuteShowOverlay(text, durationMs > 0, scaledFontSize, scaledHeight, scaledCharWidth, scaledPadWidth, scaledYOffset, mode)));
+            else ExecuteShowOverlay(text, durationMs > 0, scaledFontSize, scaledHeight, scaledCharWidth, scaledPadWidth, scaledYOffset, mode);
         }
 
         public void ClearOverlay() => _frmTextOverlay?.Clear();
 
-        private void ExecuteShowOverlay(string ch, bool useTimer, float fontSize, int formH, int charW, int padW, int yOffset)
+        private void ExecuteShowOverlay(string ch, bool useTimer, float fontSize, int formH, int charW, int padW, int yOffset, OverlayPositionMode mode)
         {
             int length = 0; foreach (char c in ch) length += (c >= 0x1100 && c <= 0xD7AF) ? 2 : 1;
             int minWidth = (int)Math.Round(40 * _currentDpiScale);
             Size sz = new Size(Math.Max(length * (charW / 2) + padW, minWidth), formH);
 
-            Point pt = ResolveCaretPosition();
-            _frmTextOverlay?.ShowOverlay(ch, useTimer, fontSize, sz.Width, sz.Height, pt.X, pt.Y + yOffset);
+            Point pt = CalculateOverlayLocation(sz, yOffset, mode);
+            _frmTextOverlay?.ShowOverlay(ch, useTimer, fontSize, sz.Width, sz.Height, pt.X, pt.Y);
         }
 
-        private static Point ResolveCaretPosition()
+        private static Point CalculateOverlayLocation(Size overlaySize, int yOffset, OverlayPositionMode mode)
         {
-            IntPtr hFore = NativeMethods.GetForegroundWindow();
-            uint tid = NativeMethods.GetWindowThreadProcessId(hFore, out _);
-            NativeMethods.GUITHREADINFO gti = new() { cbSize = Marshal.SizeOf<NativeMethods.GUITHREADINFO>() };
-            if (NativeMethods.GetGUIThreadInfo(tid, ref gti) && gti.hwndCaret != IntPtr.Zero)
+            Rectangle caretRect = ResolveCaretRectangle();
+            var screen = Screen.FromPoint(caretRect.Location);
+            int x = caretRect.Left;
+            int y = caretRect.Bottom + yOffset;
+
+            if (mode == OverlayPositionMode.ModeSwitch)
             {
-                NativeMethods.POINT pt = new() { X = gti.rectLeft, Y = gti.rectBottom };
-                NativeMethods.ClientToScreen(gti.hwndCaret, ref pt);
-                return new Point(pt.X, pt.Y);
+                x = screen.WorkingArea.Left + (screen.WorkingArea.Width - overlaySize.Width) / 2;
+                y = screen.WorkingArea.Top + (screen.WorkingArea.Height * 3) / 4 - overlaySize.Height / 2;
             }
-            if (NativeMethods.GetCursorPos(out NativeMethods.POINT mPt)) return new Point(mPt.X, mPt.Y);
-            return Point.Empty;
+            else if (mode == OverlayPositionMode.CharInput || mode == OverlayPositionMode.CharToggle)
+            {
+                x = caretRect.Right - overlaySize.Width;
+            }
+            else if (mode == OverlayPositionMode.SelectionToggle)
+            {
+                x = caretRect.Left;
+            }
+
+            if (x + overlaySize.Width > screen.WorkingArea.Right)
+                x = screen.WorkingArea.Right - overlaySize.Width;
+            if (x < screen.WorkingArea.Left)
+                x = screen.WorkingArea.Left;
+
+            if (y + overlaySize.Height > screen.WorkingArea.Bottom)
+                y = caretRect.Top - overlaySize.Height - 5;
+            if (y < screen.WorkingArea.Top)
+                y = screen.WorkingArea.Top;
+
+            return new Point(x, y);
         }
 
         private void RebuildAssetsWithRetry(int retryDelayMs)
