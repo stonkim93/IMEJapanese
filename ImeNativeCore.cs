@@ -1,6 +1,7 @@
 // ImeNativeCore.cs
 #nullable enable
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Threading;
@@ -23,7 +24,8 @@ namespace IMEJapanese
         }
 
         private const int MaxCacheSize = 100;
-        private static readonly Dictionary<IntPtr, bool> _hangulStateCache = new Dictionary<IntPtr, bool>();
+        // [수정 #4] 키보드 훅(비UI 스레드)과 UI 스레드가 동시 접근하므로 ConcurrentDictionary 사용
+        private static readonly ConcurrentDictionary<IntPtr, bool> _hangulStateCache = new ConcurrentDictionary<IntPtr, bool>();
         private static IntPtr _lastCheckedHwnd = IntPtr.Zero;
         private static DateTime _lastCheckedTime = DateTime.MinValue;
 
@@ -89,6 +91,7 @@ namespace IMEJapanese
 
             if (_hangulStateCache.Count > MaxCacheSize)
             {
+                // ConcurrentDictionary.Clear()은 스레드 안전함
                 _hangulStateCache.Clear();
             }
 
@@ -358,6 +361,11 @@ namespace IMEJapanese
             }
 
             for (int i = 0; i < backCount; i++) NativeMethods.SendBackspace();
+
+            // [수정 #1] Backspace 연속 전송 후 대상 앱이 처리할 수 있도록 짧은 딜레이 삽입
+            // 딜레이 없이 바로 유니코드 문자를 전송하면 느린 앱(구형 Office 등)에서 글자가 겹치는 현상 발생
+            if (backCount > 0) Thread.Sleep(15);
+
             if (!string.IsNullOrEmpty(text)) NativeMethods.SendUnicodeString(text);
             IsSending = false;
         }

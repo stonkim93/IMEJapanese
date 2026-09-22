@@ -129,6 +129,8 @@ namespace IMEJapanese
         private readonly System.Windows.Forms.Timer _hideTimer;
         private string _displayText = "";
         private float _displayFontSize = 22f;
+        // [수정 #9] Paint 이벤트마다 Font를 새로 생성하는 대신 같은 크기라면 캐시된 Font 재사용
+        private Font? _cachedFont;
 
         protected override CreateParams CreateParams
         {
@@ -158,10 +160,27 @@ namespace IMEJapanese
             this.Paint += RenderOverlayText;
         }
 
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _cachedFont?.Dispose();
+                _hideTimer?.Dispose();
+            }
+            base.Dispose(disposing);
+        }
+
         public void ShowOverlay(string text, bool useTimer, float fontSize, int width, int height, int x, int y)
         {
             _displayText = text;
-            _displayFontSize = fontSize;
+
+            // 폰트 크기가 바뀌면 캐시를 무효화하고 재생성
+            if (fontSize != _displayFontSize || _cachedFont == null)
+            {
+                _cachedFont?.Dispose();
+                _cachedFont = new Font("Malgun Gothic", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+                _displayFontSize = fontSize;
+            }
 
             this.Size = new Size(width, height);
             this.Location = new Point(x, y);
@@ -175,7 +194,7 @@ namespace IMEJapanese
 
         private void RenderOverlayText(object? sender, PaintEventArgs e)
         {
-            using Font f = new Font("Malgun Gothic", _displayFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+            var f = _cachedFont ?? new Font("Malgun Gothic", _displayFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
             TextRenderer.DrawText(e.Graphics, _displayText, f, this.ClientRectangle, Color.White, Color.Black, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
         }
 

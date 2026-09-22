@@ -2,8 +2,9 @@
 using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
-using System.Collections.Concurrent; // [최적화 추가] 인메모리 캐싱을 위한 네임스페이스
+using System.Collections.Concurrent;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 // KanjiCandidateOverlay.cs
 using System.Drawing;
@@ -12,8 +13,10 @@ using System.Windows.Forms;
 using System.Diagnostics;
 // GoogleJapaneseInputApi.cs
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
+using System.Reflection;
 
 namespace IMEJapanese
 {
@@ -22,7 +25,7 @@ namespace IMEJapanese
         public static event Action? DictionaryLoaded;
 
         private static readonly ConcurrentDictionary<string, List<KanjiEntry>> _entryCache = new(StringComparer.Ordinal);
-        private const int MaxCacheSize = 5000; // [최적화 추가] 무한 메모리 증가 방지
+        private const int MaxCacheSize = 5000;
 
         public class KanjiEntry
         {
@@ -52,17 +55,93 @@ namespace IMEJapanese
 
         public static bool IsLoaded { get; private set; } = false;
 
+        // [수정 #3] LoadDictionary 중복 실행 방지: 동시에 여러 Task.Run에서 호출될 때
+        // SqliteConnection이 중복 생성되는 경주 조건 차단
+        private static readonly SemaphoreSlim _loadSemaphore = new SemaphoreSlim(1, 1);
+
         private static short[]? _transitionMatrix;
         private static int _matrixSize;
         private static SqliteConnection? _connection;
+
+/// <summary>
+        /// Store 빌드 여부에 따라 쓰기 가능한 사전 DB 경로를 반환합니다.
+        /// </summary>
+        public static string GetDictionaryPath()
+        {
+#if STORE_BUILD
+            string localAppDataDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "IMEJapanese");
+            if (!Directory.Exists(localAppDataDir))
+            {
+                Directory.CreateDirectory(localAppDataDir);
+            }
+            return Path.Combine(localAppDataDir, "mozc_dict_connect.db");
+#else
+            return Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mozc_dict_connect.db");
+#endif
+        }
+
+#if STORE_BUILD
+        /// <summary>
+        /// Store 빌드 시 임베디드 리소스(mozc_dict_connect.db.gz)를 LocalAppData 경로로 자동 해제합니다.
+        /// </summary>
+        public static bool EnsureStoreDictionaryExtracted(string dbPath)
+        {
+            if (File.Exists(dbPath)) return true;
+
+            try
+            {
+                string? dir = Path.GetDirectoryName(dbPath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                var assembly = Assembly.GetExecutingAssembly();
+                string resourceName = assembly.GetManifestResourceNames()
+                    .FirstOrDefault(n => n.EndsWith("mozc_dict_connect.db.gz", StringComparison.OrdinalIgnoreCase))
+                    ?? "IMEJapanese.mozc_dict_connect.db.gz";
+
+                using var resourceStream = assembly.GetManifestResourceStream(resourceName);
+                if (resourceStream == null)
+                {
+                    if (AppConfig.LogLevel >= 1) Debug.WriteLine($"[MozcDictionary] Embedded Resource '{resourceName}'를 찾을 수 없습니다.");
+                    return false;
+                }
+
+                using var gzipStream = new GZipStream(resourceStream, CompressionMode.Decompress);
+                using var fileStream = File.Create(dbPath);
+                gzipStream.CopyTo(fileStream);
+
+                if (AppConfig.LogLevel >= 1) Debug.WriteLine($"[MozcDictionary] Store 사전 해제 완료: {dbPath}");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                if (AppConfig.LogLevel >= 1) Debug.WriteLine($"[MozcDictionary] Store 사전 해제 중 오류 발생: {ex}");
+                return false;
+            }
+        }
+#endif
 
         public static void LoadDictionary()
         {
             if (IsLoaded) return;
 
+            // [수정 #3] 세마포어로 진입 시도 (로드 중이면 즉시 리턴)
+            if (!_loadSemaphore.Wait(0)) return;
             try
             {
-                string dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mozc_dict_connect.db");
+                if (IsLoaded) return; // double-check inside lock
+
+                string dbPath = GetDictionaryPath();
+
+#if STORE_BUILD
+                if (!File.Exists(dbPath))
+                {
+                    EnsureStoreDictionaryExtracted(dbPath);
+                }
+#endif
+
                 if (!File.Exists(dbPath))
                 {
                     throw new FileNotFoundException($"[MozcDictionary] DB 파일을 찾을 수 없습니다. 경로: {dbPath}");
@@ -92,6 +171,10 @@ namespace IMEJapanese
             {
                 if (AppConfig.LogLevel >= 1) Debug.WriteLine($"[MozcDictionary] 사전 로드 중 오류 발생: {ex}");
                 MessageBox.Show($"DB 로드 실패:\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                _loadSemaphore.Release();
             }
         }
 
@@ -162,7 +245,7 @@ namespace IMEJapanese
         {
             if (_entryCache.Count >= MaxCacheSize)
             {
-                _entryCache.Clear(); // [최적화] 메모리 누수 방지
+                _entryCache.Clear();
             }
             _entryCache[key] = entries;
         }
@@ -455,7 +538,8 @@ namespace IMEJapanese
             try
             {
                 string encodedText = Uri.EscapeDataString(text);
-                string url = $"[http://www.google.com/transliterate?langpair=ja-Hira](http://www.google.com/transliterate?langpair=ja-Hira)|ja&text={encodedText}";
+                // [수정 #16] http → https 보안 강화 (MITM 공격 방지)
+                string url = $"https://www.google.com/transliterate?langpair=ja-Hira|ja&text={encodedText}";
 
                 using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
                 response.EnsureSuccessStatusCode();

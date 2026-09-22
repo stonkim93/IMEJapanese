@@ -11,6 +11,8 @@ namespace IMEJapanese
     {
         private const string RegPath = @"SYSTEM\CurrentControlSet\Control\Keyboard Layout";
         private const string RegValue = "Scancode Map";
+        // [수정 #14] 앱 설정 저장/로드용 레지스트리 경로 (HKCU)
+        private const string SettingsRegPath = @"SOFTWARE\IMEJapanese\Settings";
         private static readonly byte[] MappingBytes = { 0x71, 0xE0, 0x6E, 0x00 };
 
         public static bool IsAdmin()
@@ -113,6 +115,55 @@ namespace IMEJapanese
             {
                 MessageBox.Show($"레지스트리 수정 중 오류가 발생했습니다.\n{ex.Message}", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false;
+            }
+        }
+
+        // ─────────────────────────────────────────────────
+        // [수정 #14] 앱 사용자 설정 영구 저장 / 로드
+        // HKCU\SOFTWARE\IMEJapanese\Settings 에 저장
+        // ─────────────────────────────────────────────────
+
+        /// <summary>현재 AppConfig 설정값을 레지스트리에 저장합니다.</summary>
+        public static void SaveSettings()
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.CreateSubKey(SettingsRegPath, true);
+                if (key == null) return;
+                key.SetValue("UseGoogleApi",          AppConfig.UseGoogleApi          ? 1 : 0, RegistryValueKind.DWord);
+                key.SetValue("DefaultCapsMode",       AppConfig.DefaultCapsMode,               RegistryValueKind.DWord);
+                key.SetValue("ShowTextOverlay",        AppConfig.DefaultShowTextOverlay  ? 1 : 0, RegistryValueKind.DWord);
+                key.SetValue("ShowKeyboardLayout",     AppConfig.DefaultShowKeyboardLayout ? 1 : 0, RegistryValueKind.DWord);
+            }
+            catch (Exception ex)
+            {
+                if (AppConfig.LogLevel >= 1) System.Diagnostics.Debug.WriteLine($"[RegistryManager] 설정 저장 실패: {ex.Message}");
+            }
+        }
+
+        /// <summary>레지스트리에서 앱 설정값을 읽어 AppConfig에 적용합니다.</summary>
+        public static void LoadSettings()
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(SettingsRegPath, false);
+                if (key == null) return;
+
+                if (key.GetValue("UseGoogleApi") is int useGoogle)
+                    AppConfig.UseGoogleApi = useGoogle != 0;
+
+                if (key.GetValue("DefaultCapsMode") is int capsMode && capsMode >= 1 && capsMode <= 3)
+                    AppConfig.DefaultCapsMode = capsMode;
+
+                if (key.GetValue("ShowTextOverlay") is int showOverlay)
+                    AppConfig.DefaultShowTextOverlay = showOverlay != 0;
+
+                if (key.GetValue("ShowKeyboardLayout") is int showLayout)
+                    AppConfig.DefaultShowKeyboardLayout = showLayout != 0;
+            }
+            catch (Exception ex)
+            {
+                if (AppConfig.LogLevel >= 1) System.Diagnostics.Debug.WriteLine($"[RegistryManager] 설정 로드 실패: {ex.Message}");
             }
         }
     }

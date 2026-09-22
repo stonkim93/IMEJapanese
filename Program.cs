@@ -45,6 +45,9 @@ namespace IMEJapanese
 
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
 
+            // [수정 #14] 앱 시작 시 레지스트리에서 이전 설정값 로드
+            RegistryManager.LoadSettings();
+
             // [최적화 1] 불필요하게 중첩된 try-catch 블록 제거 및 정리
             try
             {
@@ -245,7 +248,8 @@ namespace IMEJapanese
             UpdateDictionaryStatusUi();
         }
 
-        // [최적화 2] UI 스레드 접근 패턴을 InvokeRequired를 사용해 일관성 있고 깔끔하게 수정
+        // [수정 #2] 사전 로드 상태 UI 피드백 강화 (로드 중 / 완료 동시 표시)
+        // [uc5d0최 2] UI 스레드 접근 패턴을 InvokeRequired를 사용해 일관성 있고 깔끔하게 수정
         private void UpdateDictionaryStatusUi()
         {
             if (this.InvokeRequired)
@@ -256,8 +260,17 @@ namespace IMEJapanese
 
             try
             {
-                _menuItemStatus.Text = "사전 로드 완료";
-                _sysTrayIcon.Text = UiText.TrayTooltip("사전 로드 완료");
+                if (MozcDictionary.IsLoaded)
+                {
+                    _menuItemStatus.Text = "사전 로드 완료";
+                    _sysTrayIcon.Text = UiText.TrayTooltip("사전 로드 완료");
+                }
+                else
+                {
+                    // [수정 #2] 사전 로드 중임을 사용자에게 로드 중 메시지로 안내
+                    _menuItemStatus.Text = "사전 로드 중...";
+                    _sysTrayIcon.Text = UiText.TrayTooltip("사전 로드 중");
+                }
             }
             catch { }
         }
@@ -376,8 +389,30 @@ namespace IMEJapanese
 
             _menuItemUseMozc = new ToolStripMenuItem("Mozc 오프라인 한자변환", null, async (s, e) =>
             {
-                string dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mozc_dict_connect.db");
+                string dbPath = MozcDictionary.GetDictionaryPath();
 
+#if STORE_BUILD
+                // MS Store 빌드 (IsStoreBuild=true): Embedded Resource에서 LocalAppData 폴더로 자동 해제
+                if (!File.Exists(dbPath))
+                {
+                    _menuItemStatus.Text = "현재 상태: 사전 해제 중...";
+                    bool extracted = MozcDictionary.EnsureStoreDictionaryExtracted(dbPath);
+                    if (extracted)
+                    {
+                        _menuItemStatus.Text = "현재 상태: 사전 해제 완료";
+                        if (!MozcDictionary.IsLoaded)
+                        {
+                            _ = Task.Run(() => { MozcDictionary.LoadDictionary(); });
+                        }
+                    }
+                    else
+                    {
+                        _menuItemStatus.Text = "현재 상태: 사전 해제 실패";
+                        MessageBox.Show("사전 리소스를 해제하지 못했습니다.", "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+#else
+                // 일반 빌드 (IsStoreBuild=false): 온라인에서 실행 파일 경로로 다운로드 및 압축 해제
                 if (!File.Exists(dbPath))
                 {
                     DialogResult result = MessageBox.Show(
@@ -427,6 +462,7 @@ namespace IMEJapanese
                         }
                     }
                 }
+#endif
 
                 if (File.Exists(dbPath))
                 {
@@ -499,6 +535,8 @@ namespace IMEJapanese
         {
             if (_menuItemUseMozc != null) _menuItemUseMozc.Checked = !AppConfig.UseGoogleApi;
             if (_menuItemUseGoogleApi != null) _menuItemUseGoogleApi.Checked = AppConfig.UseGoogleApi;
+            // [수정 #14] API 선택 변경 시 절리스트리에 즉시 저장
+            RegistryManager.SaveSettings();
         }
 
         private ToolStripMenuItem AddMenuToggle(string text, bool show, EventHandler onClick)
@@ -559,9 +597,12 @@ namespace IMEJapanese
         private void UpdateCapsMode(CapsMode mode)
         {
             _activeCapsMode = mode;
+            AppConfig.DefaultCapsMode = (int)mode; // [수정 #14] 현재 모드를 DefaultCapsMode에 동기화
             SyncCapsMenuChecks();
             _previousImeState = (ImeState.State)(-1);
             RefreshKeyboardLayoutOverlay();
+            // [수정 #14] CapsMode 변경 시 레지스트리에 저장
+            RegistryManager.SaveSettings();
 
             IntPtr activeHwnd = NativeMethods.GetForegroundWindow();
             if (activeHwnd != IntPtr.Zero && (IsTaskbarWindow(activeHwnd) || IsAppOrTrayWindow(activeHwnd)))
