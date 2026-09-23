@@ -140,80 +140,64 @@ Step 3: 압축하여 배포
 ```csharp
 // MozcDictionary.cs - 파일 로드 부분
 
-// 사전 로드 중복 실행 방지를 위한 세마포어
-private static readonly SemaphoreSlim _loadSemaphore = new SemaphoreSlim(1, 1);
-
 public static void LoadDictionary()
 {
-    if (IsLoaded) return;
-
-    // 세마포어로 진입 시도 (로드 중이면 즉시 리턴하여 중복 로드 방지)
-    if (!_loadSemaphore.Wait(0)) return;
-    try
+    // 1. 데이터베이스 파일 경로 설정
+    string dbPath = Path.Combine(
+        AppDomain.CurrentDomain.BaseDirectory, 
+        "mozc_dict_connect.db"
+    );
+    
+    // 2. 파일 존재 여부 확인
+    if (!File.Exists(dbPath))
     {
-        if (IsLoaded) return; // double-check
+        Debug.WriteLine("[MozcDictionary] DB 파일을 찾을 수 없습니다");
+        // 사용자에게 다운로드 제안 (Program.cs에서 처리)
+        return;
+    }
+    
+    // 3. SQLite 데이터베이스 연결
+    string connectionString = $"Data Source={dbPath};Mode=ReadOnly;";
+    using (var conn = new SqliteConnection(connectionString))
+    {
+        conn.Open();
         
-        // 1. 데이터베이스 파일 경로 설정
-        string dbPath = Path.Combine(
-            AppDomain.CurrentDomain.BaseDirectory, 
-            "mozc_dict_connect.db"
-        );
+        // 4. dictionary 테이블에서 데이터 로드
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT reading, kanji FROM dictionary;";
         
-        // 2. 파일 존재 여부 확인
-        if (!File.Exists(dbPath))
+        using (var reader = cmd.ExecuteReader())
         {
-            Debug.WriteLine("[MozcDictionary] DB 파일을 찾을 수 없습니다");
-            return;
-        }
-        
-        // 3. SQLite 데이터베이스 연결
-        string connectionString = $"Data Source={dbPath}";
-        using (var conn = new SqliteConnection(connectionString))
-        {
-            conn.Open();
-            
-            // 4. dictionary 테이블에서 데이터 로드
-            var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT reading, kanji FROM dictionary;";
-            
-            using (var reader = cmd.ExecuteReader())
+            while (reader.Read())
             {
-                while (reader.Read())
-                {
-                    string reading = reader.GetString(0);  // 히라가나
-                    string kanji = reader.GetString(1);    // 한자
+                string reading = reader.GetString(0);  // 히라가나
+                string kanji = reader.GetString(1);    // 한자
+                
+                // 메모리 캐시에 저장
+                if (!_dictionary.ContainsKey(reading))
+                    _dictionary[reading] = new List<string>();
                     
-                    // 메모리 캐시에 저장
-                    if (!_dictionary.ContainsKey(reading))
-                        _dictionary[reading] = new List<string>();
-                        
-                    _dictionary[reading].Add(kanji);
-                }
-            }
-            
-            // 5. Connection Matrix 로드 (비용 행렬)
-            cmd.CommandText = "SELECT matrix_size, data FROM matrix_metadata WHERE id = 1;";
-            using (var reader = cmd.ExecuteReader())
-            {
-                if (reader.Read())
-                {
-                    _matrixSize = reader.GetInt32(0);
-                    var matrixBlob = reader.GetFieldValue<byte[]>(1);
-                    
-                    // BLOB 바이너리 데이터를 short[] 배열로 변환
-                    _transitionMatrix = new short[matrixBlob.Length / 2];
-                    Buffer.BlockCopy(matrixBlob, 0, _transitionMatrix, 0, matrixBlob.Length);
-                }
+                _dictionary[reading].Add(kanji);
             }
         }
         
-        IsLoaded = true;
-        Debug.WriteLine($"[MozcDictionary] 로드 완료: {_dictionary.Count}개 항목");
+        // 5. Connection Matrix 로드 (비용 행렬)
+        cmd.CommandText = "SELECT matrix_size, data FROM matrix_metadata WHERE id = 1;";
+        using (var reader = cmd.ExecuteReader())
+        {
+            if (reader.Read())
+            {
+                _matrixSize = reader.GetInt32(0);
+                var matrixBlob = reader.GetFieldValue<byte[]>(1);
+                
+                // BLOB 바이너리 데이터를 short[] 배열로 변환
+                _transitionMatrix = new short[matrixBlob.Length / 2];
+                Buffer.BlockCopy(matrixBlob, 0, _transitionMatrix, 0, matrixBlob.Length);
+            }
+        }
     }
-    finally
-    {
-        _loadSemaphore.Release();
-    }
+    
+    Debug.WriteLine($"[MozcDictionary] 로드 완료: {_dictionary.Count}개 항목");
 }
 ```
 
