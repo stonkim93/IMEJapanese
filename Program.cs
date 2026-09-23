@@ -135,6 +135,7 @@ namespace IMEJapanese
 
         private bool _isShiftVisualInverted = false;
         private bool _lastHangulSyncState = false;
+        private bool _lastOurWindowHangulState = false;
         private KeyboardLayoutForm? _frmKeyboardLayout;
         private TextOverlayForm? _frmTextOverlay;
         private Point _lastKeyboardLayoutLocation = Point.Empty;
@@ -718,16 +719,7 @@ namespace IMEJapanese
         private void SyncSystemHangulState(IntPtr actualHFore, bool isTaskbar, bool isTrayOrApp, bool isLayoutForm, bool isFocusChanged)
         {
             bool isOurWindow = (isTrayOrApp || isTaskbar || isLayoutForm);
-
-            bool isCurrentHangul;
-            if (isOurWindow)
-            {
-                isCurrentHangul = _lastHangulSyncState;
-            }
-            else
-            {
-                isCurrentHangul = ImeState.CheckHangulPublic(actualHFore);
-            }
+            bool isCurrentHangul = ImeState.CheckHangulPublic(actualHFore);
 
             if (isFocusChanged)
             {
@@ -735,20 +727,48 @@ namespace IMEJapanese
                 {
                     _lastHangulSyncState = isCurrentHangul;
                 }
-            }
-            else if (!isOurWindow && isCurrentHangul != _lastHangulSyncState)
-            {
-                _lastHangulSyncState = isCurrentHangul;
-
-                Action<IntPtr> SetState = (hwnd) => { if (hwnd != IntPtr.Zero && hwnd != actualHFore) ImeState.SetHangulState(hwnd, isCurrentHangul); };
-                SetState(LastValidHwnd);
-                SetState(_frmKeyboardLayout?.Handle ?? IntPtr.Zero);
-                SetState(this.Handle);
-
-                IntPtr kanjiOverlayHandle = KanjiCandidateOverlay.ActiveHandle;
-                if (kanjiOverlayHandle != IntPtr.Zero)
+                else
                 {
-                    SetState(kanjiOverlayHandle);
+                    if (isCurrentHangul != _lastHangulSyncState)
+                    {
+                        ImeState.SetHangulState(actualHFore, _lastHangulSyncState);
+                        // 새로 설정 후 실제 적용된 상태를 읽어 기준점으로 삼음 (실패 시 플립 방지)
+                        isCurrentHangul = ImeState.CheckHangulPublic(actualHFore);
+                    }
+                    _lastOurWindowHangulState = isCurrentHangul;
+                }
+            }
+            else
+            {
+                bool stateChanged = false;
+                if (isOurWindow)
+                {
+                    // 우리가 관리하는 창에서 상태가 변경되었다면 (사용자가 한영키를 누름)
+                    if (isCurrentHangul != _lastOurWindowHangulState)
+                    {
+                        _lastOurWindowHangulState = isCurrentHangul;
+                        stateChanged = true;
+                    }
+                }
+                else if (isCurrentHangul != _lastHangulSyncState)
+                {
+                    stateChanged = true;
+                }
+
+                if (stateChanged)
+                {
+                    _lastHangulSyncState = isCurrentHangul;
+
+                    Action<IntPtr> SetState = (hwnd) => { if (hwnd != IntPtr.Zero && hwnd != actualHFore) ImeState.SetHangulState(hwnd, isCurrentHangul); };
+                    SetState(LastValidHwnd);
+                    SetState(_frmKeyboardLayout?.Handle ?? IntPtr.Zero);
+                    SetState(this.Handle);
+
+                    IntPtr kanjiOverlayHandle = KanjiCandidateOverlay.ActiveHandle;
+                    if (kanjiOverlayHandle != IntPtr.Zero)
+                    {
+                        SetState(kanjiOverlayHandle);
+                    }
                 }
             }
         }
