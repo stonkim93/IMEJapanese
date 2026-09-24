@@ -562,8 +562,36 @@ dotnet publish -c Release -r win-x64 --self-contained true /p:PublishSingleFile=
 * **사용자 설정 영구 저장**: 레지스트리(HKCU)를 통해 사용자가 선택한 입력 모드와 API 설정 등을 앱 재시작 후에도 안전하게 유지합니다.
 
 
+
 <br>
 
+## 🚀 최근 성능 최적화 내역 (2026-09-24)
+
+이 프로젝트는 극한의 입력 반응성과 최적화를 위해 다음과 같은 심층 구조 개선이 적용되었습니다.
+
+1. **GC 부하 및 메모리 최적화 (Viterbi/Beam Search)**
+   - 한자 변환 알고리즘 내부에서 발생하는 `Tuple` 등의 무분별한 힙 할당을 `struct`로 교체
+   - 문자열(`string`) 처리 로직을 `Span<char>`로 개편하여 임시 객체 생성을 원천 차단
+   - 탐색 버퍼를 `[ThreadStatic]` 기반 In-Place 덮어쓰기 방식으로 재구축하여 **GC 스파이크 현상 완벽 제거**
+
+2. **SQLite 캐시 및 조회 아키텍처 개편**
+   - 5000개 초과 시 통째로 날려버리던 무식한 `Clear()` 로직을 자체 구현한 **LRU(Least Recently Used) Cache**로 교체
+   - 캐시 교체(Eviction)에 따른 프레임 드랍(Latency Spike)을 방지하고 스레드 경합(Lock Contention) 최소화
+
+3. **이벤트 기반 시스템(WinEventHook) 도입**
+   - `System.Windows.Forms.Timer`를 이용한 100ms 폴링 로직을 완전 삭제
+   - 윈도우 창 포커스가 변경될 때만(`EVENT_SYSTEM_FOREGROUND`, `EVENT_OBJECT_FOCUS`) 이벤트를 수신하도록 전환하여 백그라운드 **CPU 점유율과 오버헤드를 대폭 절감**
+
+4. **UI 스레드 Debouncing(Throttling) 및 Cold Start 개선**
+   - 빠른 타이핑과 특수키 연속 입력 시 발생하는 UI 갱신 요청(`RequestLayoutRefresh`)에 `Interlocked.Exchange` 기반 디바운싱 로직 추가 (메시지 큐 포화 방지)
+   - 앱 구동(Cold Start) 시, 사전 로드가 안 된 상태에서 무한정 대기(블로킹)하던 로직을 제거하고 즉각적인 Fallback 응답 및 안내 UI 제공
+
+5. **예외 처리 및 런타임 안정성 강화 (v1.2.4.0)**
+   - `DisableRuntimeMarshalling` 환경에서 Unmanaged 콜백 함수(`delegate* unmanaged`) 실행 시 발생할 수 있는 CLR FailFast(0xc0000005) 오류를 방지하기 위해 정교한 `try-catch` 도입
+   - 앱 종료 시 트레이 아이콘 네이티브 리소스와 전역 시스템 이벤트(`SystemEvents`) 구독을 안전하게 해제하여 강제 종료 시의 Access Violation 해결
+   - 한영 / Caps Lock 키 입력 시 포커스가 변경되지 않아도 이벤트를 가로채고 OS 지연 시간을 고려한 비동기식 상태 확인 로직을 구현하여 UI 피드백(포인터 및 트레이 상태) 정상화
+
+<br>
 
 ## 💡 몇가지 기술적 난제들
 

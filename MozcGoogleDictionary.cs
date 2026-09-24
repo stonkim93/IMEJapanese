@@ -24,8 +24,78 @@ namespace IMEJapanese
     {
         public static event Action? DictionaryLoaded;
 
-        private static readonly ConcurrentDictionary<string, List<KanjiEntry>> _entryCache = new(StringComparer.Ordinal);
+        public class LruCache<TKey, TValue> where TKey : notnull
+        {
+            private readonly int _capacity;
+            private readonly ConcurrentDictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>> _cache;
+            private readonly LinkedList<KeyValuePair<TKey, TValue>> _list;
+            private readonly object _lock = new object();
+
+            public LruCache(int capacity)
+            {
+                _capacity = capacity;
+                _cache = new ConcurrentDictionary<TKey, LinkedListNode<KeyValuePair<TKey, TValue>>>();
+                _list = new LinkedList<KeyValuePair<TKey, TValue>>();
+            }
+
+            public bool TryGetValue(TKey key, out TValue? value)
+            {
+                lock (_lock)
+                {
+                    if (_cache.TryGetValue(key, out var node))
+                    {
+                        _list.Remove(node);
+                        _list.AddFirst(node);
+                        value = node.Value.Value;
+                        return true;
+                    }
+                }
+                value = default;
+                return false;
+            }
+
+            public void Set(TKey key, TValue value)
+            {
+                lock (_lock)
+                {
+                    if (_cache.TryGetValue(key, out var node))
+                    {
+                        _list.Remove(node);
+                        node.Value = new KeyValuePair<TKey, TValue>(key, value);
+                        _list.AddFirst(node);
+                    }
+                    else
+                    {
+                        if (_cache.Count >= _capacity)
+                        {
+                            var last = _list.Last;
+                            if (last != null)
+                            {
+                                _cache.TryRemove(last.Value.Key, out _);
+                                _list.RemoveLast();
+                            }
+                        }
+                        var newNode = new LinkedListNode<KeyValuePair<TKey, TValue>>(new KeyValuePair<TKey, TValue>(key, value));
+                        _list.AddFirst(newNode);
+                        _cache[key] = newNode;
+                    }
+                }
+            }
+
+            public void Clear()
+            {
+                lock (_lock)
+                {
+                    _cache.Clear();
+                    _list.Clear();
+                }
+            }
+
+            public int Count => _cache.Count;
+        }
+
         private const int MaxCacheSize = 5000;
+        private static readonly LruCache<string, List<KanjiEntry>> _entryCache = new(MaxCacheSize);
 
         public class KanjiEntry
         {
@@ -243,11 +313,7 @@ namespace IMEJapanese
 
         private static void AddToCache(string key, List<KanjiEntry> entries)
         {
-            if (_entryCache.Count >= MaxCacheSize)
-            {
-                _entryCache.Clear();
-            }
-            _entryCache[key] = entries;
+            _entryCache.Set(key, entries);
         }
 
         public static List<ReadingMatch> GetEntriesForReadingAt(string text, int startIndex, int maxPerSubstring = 5)
@@ -265,7 +331,7 @@ namespace IMEJapanese
                 string prefix = text.Substring(startIndex, i);
                 if (_entryCache.TryGetValue(prefix, out var cachedEntries))
                 {
-                    cachedMatches.Add((i, prefix, cachedEntries));
+                    cachedMatches.Add((i, prefix, cachedEntries!));
                 }
                 else
                 {
@@ -338,7 +404,7 @@ namespace IMEJapanese
 
             if (_entryCache.TryGetValue(reading, out var cached))
             {
-                if (cached.Count <= MozcConfig.MaxDisplayCandidates) return new List<KanjiEntry>(cached);
+                if (cached!.Count <= MozcConfig.MaxDisplayCandidates) return new List<KanjiEntry>(cached);
                 return cached.GetRange(0, MozcConfig.MaxDisplayCandidates);
             }
 
@@ -397,7 +463,7 @@ namespace IMEJapanese
 
                 if (_entryCache.TryGetValue(r, out var cached))
                 {
-                    results[r] = cached;
+                    results[r] = cached!;
                 }
                 else
                 {

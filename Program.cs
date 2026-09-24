@@ -111,8 +111,10 @@ namespace IMEJapanese
         private static readonly RectangleF TrayIconTextRectUpper = new RectangleF(-2.0f, -3.5f, 36f, 36f);
 
         private readonly Dictionary<ImeState.State, StateAssets> _assetCache = new();
-        private readonly System.Windows.Forms.Timer _stateCheckTimer;
+        private IntPtr _hForegroundHook;
+        private IntPtr _hFocusHook;
         private readonly NotifyIcon _sysTrayIcon;
+        private static readonly System.Net.Http.HttpClient _httpClient = new System.Net.Http.HttpClient();
         private readonly ContextMenuStrip _trayContextMenu;
         private readonly ToolStripMenuItem _menuItemStatus;
         private bool _isTextOverlayEnabled = AppConfig.DefaultShowTextOverlay;
@@ -227,8 +229,15 @@ namespace IMEJapanese
 
             RebuildStateAssets();
 
-            _stateCheckTimer = new System.Windows.Forms.Timer { Interval = AppConfig.PollingInterval };
-            _stateCheckTimer.Tick += ProcessStateCheck;
+            unsafe
+            {
+                _hForegroundHook = NativeMethods.SetWinEventHook(
+                    NativeMethods.EVENT_SYSTEM_FOREGROUND, NativeMethods.EVENT_SYSTEM_FOREGROUND,
+                    IntPtr.Zero, &StaticWinEventProc, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
+                _hFocusHook = NativeMethods.SetWinEventHook(
+                    NativeMethods.EVENT_OBJECT_FOCUS, NativeMethods.EVENT_OBJECT_FOCUS,
+                    IntPtr.Zero, &StaticWinEventProc, 0, 0, NativeMethods.WINEVENT_OUTOFCONTEXT);
+            }
 
             MozcDictionary.DictionaryLoaded += OnMozcDictionaryLoaded;
             if (MozcDictionary.IsLoaded)
@@ -239,9 +248,50 @@ namespace IMEJapanese
 
         protected override void OnFormClosing(FormClosingEventArgs e)
         {
+            SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+            SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+            MozcDictionary.DictionaryLoaded -= OnMozcDictionaryLoaded;
+
+            if (_hForegroundHook != IntPtr.Zero) { NativeMethods.UnhookWinEvent(_hForegroundHook); _hForegroundHook = IntPtr.Zero; }
+            if (_hFocusHook != IntPtr.Zero) { NativeMethods.UnhookWinEvent(_hFocusHook); _hFocusHook = IntPtr.Zero; }
+            
             GlobalInputHook.Uninstall();
             MozcDictionary.Dispose();
+            
+            if (_sysTrayIcon != null)
+            {
+                _sysTrayIcon.Visible = false;
+                _sysTrayIcon.Dispose();
+            }
+
             base.OnFormClosing(e);
+        }
+
+        [System.Runtime.InteropServices.UnmanagedCallersOnly(CallConvs = new[] { typeof(System.Runtime.CompilerServices.CallConvStdcall) })]
+        private static void StaticWinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime)
+        {
+            try
+            {
+                // IDOBJ_WINDOW (0) 또는 IDOBJ_CLIENT (-4) 등 주요 객체의 포커스만 처리
+                if (eventType == NativeMethods.EVENT_OBJECT_FOCUS && idObject != 0 && idObject != -4) return;
+                Instance?.ProcessStateCheck(null, EventArgs.Empty);
+            }
+            catch (Exception ex)
+            {
+                if (AppConfig.LogLevel >= 1) Trace.WriteLine($"StaticWinEventProc error: {ex.Message}");
+            }
+        }
+
+        public void RequestStateCheck()
+        {
+            if (this.InvokeRequired)
+            {
+                this.BeginInvoke(new Action(() => ProcessStateCheck(null, EventArgs.Empty)));
+            }
+            else
+            {
+                ProcessStateCheck(null, EventArgs.Empty);
+            }
         }
 
         private void OnMozcDictionaryLoaded()
@@ -429,14 +479,11 @@ namespace IMEJapanese
                             _menuItemStatus.Text = "현재 상태: 사전 다운로드 중...";
                             string zipPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "mozc_dict_connect.zip");
 
-                            using (var client = new System.Net.Http.HttpClient())
+                            var response = await _httpClient.GetAsync("https://github.com/stonkim93/IMEJapanese/releases/download/IMEJapanese/mozc_dict_connect.zip");
+                            response.EnsureSuccessStatusCode();
+                            using (var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None))
                             {
-                                var response = await client.GetAsync("https://github.com/stonkim93/IMEJapanese/releases/download/IMEJapanese/mozc_dict_connect.zip");
-                                response.EnsureSuccessStatusCode();
-                                using (var fs = new FileStream(zipPath, FileMode.Create, FileAccess.Write, FileShare.None))
-                                {
-                                    await response.Content.CopyToAsync(fs);
-                                }
+                                await response.Content.CopyToAsync(fs);
                             }
 
                             _menuItemStatus.Text = "현재 상태: 사전 압축 해제 중...";
@@ -575,7 +622,6 @@ namespace IMEJapanese
             }
 
             ApplyVisualState(ImeState.Detect(_currentContextHwnd, _activeCapsMode == CapsMode.Japanese1, _activeCapsMode == CapsMode.Japanese2, _activeCapsMode == CapsMode.Japanese3));
-            _stateCheckTimer.Start();
         }
 
         private void OnDisplaySettingsChanged(object? sender, EventArgs e)
@@ -593,7 +639,18 @@ namespace IMEJapanese
             }
         }
 
-        public void RequestLayoutRefresh() => this.BeginInvoke(new Action(RefreshKeyboardLayoutOverlay));
+        private int _layoutRefreshPending = 0;
+        public void RequestLayoutRefresh()
+        {
+            if (Interlocked.Exchange(ref _layoutRefreshPending, 1) == 0)
+            {
+                this.BeginInvoke(new Action(() =>
+                {
+                    _layoutRefreshPending = 0;
+                    RefreshKeyboardLayoutOverlay();
+                }));
+            }
+        }
 
         private void UpdateCapsMode(CapsMode mode)
         {
@@ -870,10 +927,10 @@ namespace IMEJapanese
 
         private void RebuildAssetsWithRetry(int retryDelayMs)
         {
-            _stateCheckTimer.Stop(); RebuildStateAssets(); _stateCheckTimer.Start();
+            RebuildStateAssets();
             if (retryDelayMs > 0)
             {
-                Task.Delay(retryDelayMs).ContinueWith(_ => this.BeginInvoke(new Action(() => { _stateCheckTimer.Stop(); RebuildStateAssets(); _stateCheckTimer.Start(); })));
+                Task.Delay(retryDelayMs).ContinueWith(_ => this.BeginInvoke(new Action(() => { RebuildStateAssets(); })));
             }
         }
 

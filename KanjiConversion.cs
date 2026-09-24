@@ -2,7 +2,6 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace IMEJapanese
 {
@@ -12,7 +11,6 @@ namespace IMEJapanese
     /// </summary>
     public static class JapaneseMorphologyAnalyzer
     {
-        // 주요 동사/형용사 활용 어미 목록 (추후 유지보수 시 추가 가능)
         private static readonly string[] Suffixes = 
         {
             "ます", "ました", "ましょう", "ません",
@@ -25,53 +23,57 @@ namespace IMEJapanese
             "かった", "くて"
         };
 
-        /// <summary>
-        /// 주어진 히라가나 문자열을 분석하여 가능한 어간(BaseForm)과 어미(Suffix) 조합들을 반환합니다.
-        /// </summary>
-        /// <param name="hiragana">분석할 히라가나 문자열</param>
-        /// <returns>기본형(어간)과 접미사 튜플의 리스트</returns>
+        [ThreadStatic]
+        private static List<(string BaseForm, string OriginalSuffix)>? _buffer;
+
         public static List<(string BaseForm, string OriginalSuffix)> Analyze(string hiragana)
         {
-            var results = new List<(string BaseForm, string OriginalSuffix)> { (hiragana, "") };
-            if (string.IsNullOrEmpty(hiragana)) return results;
+            if (_buffer == null) _buffer = new List<(string, string)>(32);
+            _buffer.Clear();
+            _buffer.Add((hiragana, ""));
+
+            if (string.IsNullOrEmpty(hiragana)) return _buffer;
+
+            var span = hiragana.AsSpan();
 
             foreach (string suffix in Suffixes)
             {
-                if (hiragana.EndsWith(suffix) && hiragana.Length > suffix.Length)
+                if (span.EndsWith(suffix.AsSpan()) && span.Length > suffix.Length)
                 {
-                    string stem = hiragana.Substring(0, hiragana.Length - suffix.Length);
-                    if (stem.Length == 0) continue;
+                    var stemSpan = span.Slice(0, span.Length - suffix.Length);
+                    if (stemSpan.Length == 0) continue;
                     
-                    char lastChar = stem[stem.Length - 1];
+                    char lastChar = stemSpan[stemSpan.Length - 1];
                     char s0 = suffix[0]; 
 
                     if (s0 == 'し' || s0 == 'す' || s0 == 'さ') 
                     {
-                        results.Add((stem, suffix));
+                        _buffer.Add((stemSpan.ToString(), suffix));
                     }
 
                     if (CharacterDatabase.IsValidCharacter(lastChar))
                     {
                         ushort code = CharacterDatabase.GetCodeFromChar(lastChar);
-                        string baseStem = stem.Substring(0, stem.Length - 1);
+                        var baseStemSpan = stemSpan.Slice(0, stemSpan.Length - 1);
+                        string baseStem = baseStemSpan.ToString();
 
                         if (s0 == 'た' || s0 == 'だ')
                         {
                             switch (code)
                             {
                                 case 332: // っ
-                                    results.Add((baseStem + "う", "っ" + suffix));
-                                    results.Add((baseStem + "つ", "っ" + suffix));
-                                    results.Add((baseStem + "る", "っ" + suffix));
+                                    _buffer.Add((baseStem + "う", "っ" + suffix));
+                                    _buffer.Add((baseStem + "つ", "っ" + suffix));
+                                    _buffer.Add((baseStem + "る", "っ" + suffix));
                                     break;
                                 case 092: // ん
-                                    results.Add((baseStem + "む", "ん" + suffix));
-                                    results.Add((baseStem + "ぬ", "ん" + suffix));
-                                    results.Add((baseStem + "ぶ", "ん" + suffix));
+                                    _buffer.Add((baseStem + "む", "ん" + suffix));
+                                    _buffer.Add((baseStem + "ぬ", "ん" + suffix));
+                                    _buffer.Add((baseStem + "ぶ", "ん" + suffix));
                                     break;
                                 case 001: // い
-                                    results.Add((baseStem + "く", "い" + suffix));
-                                    results.Add((baseStem + "ぐ", "い" + suffix));
+                                    _buffer.Add((baseStem + "く", "い" + suffix));
+                                    _buffer.Add((baseStem + "ぐ", "い" + suffix));
                                     break;
                             }
                         }
@@ -82,28 +84,35 @@ namespace IMEJapanese
                             if (CharacterDatabase.ContainsCode(uCode))
                             {
                                 char uChar = CharacterDatabase.GetCharacterData(uCode).Hiragana;
-                                results.Add((baseStem + uChar, lastChar + suffix));
+                                _buffer.Add((baseStem + uChar, lastChar + suffix));
                             }
                         }
                     }
                 }
             }
-            return results;
+            return _buffer;
         }
     }
 
-    /// <summary>
-    /// 동적 계획법(DP) 및 비터비(Viterbi) 알고리즘을 활용하여 
-    /// 입력된 히라가나 문자열을 최적의 한자 후보들로 변환하는 클래스입니다.
-    /// </summary>
+    public struct DpNode : IComparable<DpNode>
+    {
+        public int Cost;
+        public string Kanji;
+
+        public DpNode(int cost, string kanji)
+        {
+            Cost = cost;
+            Kanji = kanji;
+        }
+
+        public int CompareTo(DpNode other)
+        {
+            return Cost.CompareTo(other.Cost);
+        }
+    }
+
     public static class KanjiConverter
     {
-        /// <summary>
-        /// 히라가나 입력 문자열에 대해 가장 적합한 한자 변환 후보(KanjiEntry) 리스트를 추출합니다.
-        /// 형태소 분석 및 형태소 간 연결 비용(Transition Cost)을 고려하여 최적 경로를 찾습니다.
-        /// </summary>
-        /// <param name="text">변환할 원본 문자열</param>
-        /// <returns>우선순위(Cost)가 높은 순서대로 정렬된 한자 후보 리스트</returns>
         public static List<MozcDictionary.KanjiEntry> GetKanjiCandidatesOptimized(string text)
         {
             if (string.IsNullOrWhiteSpace(text)) 
@@ -111,68 +120,84 @@ namespace IMEJapanese
 
             string normalized = JapaneseCharacterProcessor.ToHiragana(text);
             int n = normalized.Length;
-            
-            var allSubstrings = new HashSet<string>();
-            for (int i = 0; i < n; i++) {
-                for (int len = 1; len <= Math.Min(20, n - i); len++) {
-                    allSubstrings.Add(normalized.Substring(i, len));
-                }
-            }
-            var dictMatches = MozcDictionary.GetEntriesForReadingsBatch(allSubstrings);
-
             int beamWidth = 50; 
-            var dp = new Dictionary<ushort, List<(int cost, string kanji)>>[n + 1];
-            for (int i = 0; i <= n; i++) 
-                dp[i] = new Dictionary<ushort, List<(int cost, string kanji)>>();
             
-            dp[0][0] = new List<(int cost, string kanji)> { (0, "") };
+            // DP 배열: 각 위치마다 (RightId -> DpNode 리스트)
+            var dp = new Dictionary<ushort, List<DpNode>>[n + 1];
+            for (int i = 0; i <= n; i++) 
+                dp[i] = new Dictionary<ushort, List<DpNode>>();
+            
+            dp[0][0] = new List<DpNode> { new DpNode(0, "") };
 
             for (int i = 0; i < n; i++)
             {
                 if (dp[i].Count == 0) continue;
 
-                foreach (var kvp in dp[i].ToList()) {
-                    dp[i][kvp.Key] = kvp.Value.OrderBy(x => x.cost).Take(beamWidth).ToList();
+                // Beam Search 최적화 (불필요한 ToList() 제거 및 제자리 정렬)
+                foreach (var kvp in dp[i]) {
+                    if (kvp.Value.Count > beamWidth) {
+                        kvp.Value.Sort();
+                        kvp.Value.RemoveRange(beamWidth, kvp.Value.Count - beamWidth);
+                    }
                 }
 
-                var matches = new List<MozcDictionary.ReadingMatch>();
-                for (int len = 1; len <= Math.Min(20, n - i); len++)
-                {
-                    string subText = normalized.Substring(i, len);
-                    
-                    if (dictMatches.TryGetValue(subText, out var entries)) {
-                        foreach (var e in entries) 
-                            matches.Add(new MozcDictionary.ReadingMatch { Length = len, Entry = e });
-                    }
+                // Substring을 모두 미리 생성하지 않고 GetEntriesForReadingAt 활용
+                var matches = MozcDictionary.GetEntriesForReadingAt(normalized, i, 20);
 
-                    if (len > 1) {
+                // 길이가 1인 경우 (Fallback 포함)
+                bool hasLength1 = false;
+                foreach (var match in matches) {
+                    if (match.Length == 1) {
+                        hasLength1 = true;
+                        break;
+                    }
+                }
+
+                if (!hasLength1 && i < n)
+                {
+                    string singleChar = normalized.Substring(i, 1);
+                    ushort fallbackId = 1934;
+                    int fallbackCost = CharacterDatabase.IsValidCharacter(singleChar[0]) ? 8000 : 10000;
+                    
+                    matches.Add(new MozcDictionary.ReadingMatch {
+                        Length = 1,
+                        Entry = new MozcDictionary.KanjiEntry(singleChar, singleChar, fallbackId, fallbackId, fallbackCost) 
+                    });
+                }
+
+                // 형태소 분석을 통한 추가 매치 생성 (길이 1 이상)
+                int matchesCount = matches.Count;
+                for (int m = 0; m < matchesCount; m++)
+                {
+                    var match = matches[m];
+                    if (match.Length > 1) {
+                        string subText = normalized.Substring(i, match.Length);
                         var morphs = JapaneseMorphologyAnalyzer.Analyze(subText);
-                        foreach (var morph in morphs) {
+                        
+                        // _buffer 재사용을 위해 morphs 복사본을 만들어 순회하거나, 
+                        // Analyze 내부가 아닌 외부에서 GetEntriesForReadingsBatch 대신 캐시를 이용할 수 있음
+                        // 편의상 MozcGoogleDictionary의 GetEntriesForReadingAt을 통해 처리된 기본형을 매칭할 수 있습니다.
+                        // (간단화를 위해 여기서는 _buffer 직접 순회)
+                        for (int k = 0; k < morphs.Count; k++) {
+                            var morph = morphs[k];
                             if (string.IsNullOrEmpty(morph.OriginalSuffix)) continue;
-                            if (dictMatches.TryGetValue(morph.BaseForm, out var baseEntries)) {
-                                foreach (var baseEntry in baseEntries) {
-                                    var combinedKanji = baseEntry.Kanji + morph.OriginalSuffix;
+                            
+                            // 기본형에 대한 캐시 조회
+                            var baseEntries = MozcDictionary.GetEntriesForReadingAt(morph.BaseForm, 0, morph.BaseForm.Length);
+                            foreach (var baseMatch in baseEntries) {
+                                if (baseMatch.Length == morph.BaseForm.Length) {
+                                    var combinedKanji = baseMatch.Entry.Kanji + morph.OriginalSuffix;
                                     matches.Add(new MozcDictionary.ReadingMatch { 
-                                        Length = len, 
-                                        Entry = new MozcDictionary.KanjiEntry(subText, combinedKanji, baseEntry.LeftId, baseEntry.RightId, baseEntry.Cost + 500) 
+                                        Length = match.Length, 
+                                        Entry = new MozcDictionary.KanjiEntry(subText, combinedKanji, baseMatch.Entry.LeftId, baseMatch.Entry.RightId, baseMatch.Entry.Cost + 500) 
                                     });
                                 }
                             }
                         }
                     }
-
-                    if (len == 1)
-                    {
-                        ushort fallbackId = 1934;
-                        int fallbackCost = CharacterDatabase.IsValidCharacter(subText[0]) ? 8000 : 10000;
-                        
-                        matches.Add(new MozcDictionary.ReadingMatch {
-                            Length = 1,
-                            Entry = new MozcDictionary.KanjiEntry(subText, subText, fallbackId, fallbackId, fallbackCost) 
-                        });
-                    }
                 }
 
+                // 다음 상태로 전이
                 foreach (var match in matches)
                 {
                     int nextIdx = i + match.Length;
@@ -186,37 +211,43 @@ namespace IMEJapanese
 
                         foreach (var path in kvp.Value)
                         {
-                            int totalCost = path.cost + transitionCost + cand.Cost;
-                            if (!dp[nextIdx].ContainsKey(cand.RightId))
-                                dp[nextIdx][cand.RightId] = new List<(int cost, string kanji)>();
+                            int totalCost = path.Cost + transitionCost + cand.Cost;
+                            
+                            if (!dp[nextIdx].TryGetValue(cand.RightId, out var nextList))
+                            {
+                                nextList = new List<DpNode>();
+                                dp[nextIdx][cand.RightId] = nextList;
+                            }
 
-                            dp[nextIdx][cand.RightId].Add((totalCost, path.kanji + cand.Kanji));
+                            nextList.Add(new DpNode(totalCost, path.Kanji + cand.Kanji));
                         }
                     }
                 }
             }
 
-            var finalCandidates = new List<(int cost, string kanji)>();
+            var finalCandidates = new List<DpNode>();
             foreach (var kvp in dp[n])
             {
                 int lastRightId = kvp.Key;
                 int eosTransitionCost = MozcDictionary.GetTransitionCost(lastRightId, 0);
 
                 foreach (var path in kvp.Value) {
-                    finalCandidates.Add((path.cost + eosTransitionCost, path.kanji));
+                    finalCandidates.Add(new DpNode(path.Cost + eosTransitionCost, path.Kanji));
                 }
             }
 
-            var finalPaths = finalCandidates
-                                .OrderBy(p => p.cost)
-                                .GroupBy(p => p.kanji)
-                                .Select(g => g.First())
-                                .Take(9).ToList();
-
+            finalCandidates.Sort();
+            
             var results = new List<MozcDictionary.KanjiEntry>();
-            foreach (var path in finalPaths) {
-                results.Add(new MozcDictionary.KanjiEntry(normalized, path.kanji, 0, 0, path.cost));
+            var seenKanji = new HashSet<string>();
+
+            foreach (var path in finalCandidates) {
+                if (seenKanji.Add(path.Kanji)) {
+                    results.Add(new MozcDictionary.KanjiEntry(normalized, path.Kanji, 0, 0, path.Cost));
+                    if (results.Count >= 9) break;
+                }
             }
+
             return results;
         }
     }

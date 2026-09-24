@@ -754,6 +754,46 @@ Step 2: YN 키 2번 누르기 (1단계 더)
 
 ---
 
+## 5. 입력 감지 및 시스템 구조 최적화 (2026-09-24 업데이트)
+
+IME(입력기) 특성상 시스템 전역에서 발생하는 이벤트를 실시간으로 처리해야 하므로, 철저한 안전성과 성능 최적화가 적용되었습니다.
+
+### 5.1 이벤트 기반 폴링(Event-based Polling) 도입
+```
+기존 방식의 한계:
+- 100ms 간격으로 타이머가 돌며 `GetForegroundWindow()` 등을 무한 호출 (비효율적인 CPU 점유)
+
+개선된 방식 (WinEventHook):
+- `SetWinEventHook` API를 사용하여 윈도우 포커스(EVENT_SYSTEM_FOREGROUND)나 객체 포커스(EVENT_OBJECT_FOCUS)가 변경될 때만 상태 감지 함수를 실행
+- 아무 입력이 없을 때의 CPU 오버헤드를 0% 수준으로 절감!
+```
+
+### 5.2 UI 스레드 포화(Flooding) 방지 (디바운싱 구조)
+```
+기존 방식의 한계:
+- `this.BeginInvoke()`로 키 입력마다 UI 갱신(오버레이 등) 메시지를 큐에 적재하여, 고속 타이핑 시 UI 스레드 과부하 및 프레임 렉 발생
+
+개선된 방식 (Interlocked Throttling):
+- `Interlocked.Exchange`를 사용한 스레드 안전(Thread-safe) 디바운서(Debouncer) 패턴 적용
+- 큐에 이미 화면 갱신 요청이 있다면 중복 요청을 무시(Drop)하여 UI 스레드를 항상 쾌적하게 유지
+```
+
+### 5.3 비동기 및 리소스 안전성 (Cold Start 보장)
+```
+- 백그라운드 초기화: `Task.Run`을 통해 사전이나 무거운 객체를 뒷단에서 로딩
+- 즉각적인 Fallback: DB나 API가 준비되지 않은 "Cold Start" 상태에서 스페이스바를 누르면, 무한 대기(Sleep)하지 않고 즉시 원래 문자를 출력하여 입력 반응성을 보장
+- 소켓 고갈 방지: `async void` 이벤트 등에서 `HttpClient`가 매번 생성되지 않도록 `static readonly` 캐싱 구조 전면 적용
+```
+
+### 5.4 네이티브 콜백 런타임 안정성 방어벽 및 자원 해제 (v1.2.4.0)
+```
+- FailFast 방지: `DisableRuntimeMarshalling` 최적화 환경에서 `delegate* unmanaged` 로 호출되는 WinEventHook 및 KeyboardHook 콜백 메서드들에 `try-catch` 블록을 구성하여, CLR 레벨의 강제 크래시(0xc0000005) 원천 차단.
+- 이벤트 동기화: 타이머 훅 제거 이후 발생했던 "한/영 키 및 CapsLock 조작 시 마우스 포인터 색상이 안 변하는 이슈"를 해결하기 위해, 포커스 변경이 없는 키 이벤트(WM_KEYUP) 발생 시 비동기로 UI를 디바운싱 업데이트 하도록 개선.
+- 자원 해제: 앱 종료 시 트레이 아이콘에 종속된 Hidden Window와 전역 `SystemEvents` 구독을 철저히 Dispose하여, 종료 단계에서 발생하는 시스템 오류메시지를 소거.
+```
+
+---
+
 ## 요약
 
 ### 3자리 코드의 효율성

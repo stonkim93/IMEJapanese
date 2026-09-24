@@ -633,6 +633,14 @@ namespace IMEJapanese
                         ClearCompositionBuffer();
                     }
                 }
+                else if (msg == NativeMethods.WM_KEYUP || msg == NativeMethods.WM_SYSKEYUP)
+                {
+                    if (vkCode == NativeMethods.VK_CAPITAL || vkCode == 0x15) // CapsLock(0x14) or Hangul(0x15)
+                    {
+                        // OS 상태가 반영될 시간을 약간 준 후 UI 업데이트
+                        Task.Delay(50).ContinueWith(_ => MainForm.Instance?.RequestStateCheck());
+                    }
+                }
 
                 if (!TryResolveKeyboardContext(vkCode, out IntPtr hFore, out bool capsOn, out bool isHangulMode, out bool isHanjaOrRCtrl))
                     return BypassKeyboardHook(nCode, wParam, lParam);
@@ -682,24 +690,17 @@ namespace IMEJapanese
 
                 if (!MozcDictionary.IsJapaneseText(targetToConvert)) return false;
 
+                if (!MozcDictionary.IsLoaded && !AppConfig.UseGoogleApi)
+                {
+                    MainForm.Instance?.ShowOverlay("사전 로딩 중...", 1500, OverlayPositionMode.ModeSwitch);
+                    ClearCompositionBuffer();
+                    SendSpaceKey();
+                    return false;
+                }
+
                 Task.Run(async () =>
                 {
-                    if (!MozcDictionary.IsLoaded)
-                    {
-                        try
-                        {
-                            MozcDictionary.LoadDictionary();
-                            int waited = 0;
-                            while (!MozcDictionary.IsLoaded && waited < 2000)
-                            {
-                                Thread.Sleep(120);
-                                waited += 120;
-                            }
-                            MozcDictionary.PrintStatistics();
-                        }
-                        catch (Exception ex) { if (AppConfig.LogLevel >= 1) Trace.WriteLine($"HandleKanjiConversion: LoadDictionary failed: {ex}"); }
-                    }
-
+                    if (!MozcDictionary.IsLoaded && !AppConfig.UseGoogleApi) return;
                     bool foundCandidates = false;
                     try
                     {
